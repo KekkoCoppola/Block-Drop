@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { CardData } from '../types';
 import { getCardStyle } from '../constants';
@@ -16,46 +16,60 @@ export const Card: React.FC<CardProps> = ({ card, index, isTop, onDragStart, isH
   const style = getCardStyle(card.value);
   const isMerge = card.isMerging;
   
-  if (isHidden) return null;
+  // Memoize random rotation so it doesn't change on re-renders, only on mount
+  const randomRotate = useMemo(() => Math.random() * 20 - 10, []);
 
-  // Standard Drop Animation
+  // Ghost Style (When being dragged from this column)
+  const ghostStyle = isHidden ? {
+      opacity: 0.4,
+      transform: 'scale(0.85)',
+      boxShadow: 'none',
+      border: '2px dashed rgba(255,255,255,0.3)',
+      background: 'rgba(255,255,255,0.05)'
+  } : {};
+
+  // CUTE & FLUID DROP ANIMATION
   const dropVariants = {
-    initial: { scale: 0.5, y: -100, opacity: 0 },
+    initial: { 
+      scale: 0.8, 
+      y: -1000, 
+      rotate: randomRotate 
+    },
     animate: { 
       scale: 1, 
       y: 0, 
-      opacity: 1,
+      rotate: 0, 
       transition: { 
         type: "spring", 
-        stiffness: 500, 
-        damping: 30,
-        mass: 1
+        stiffness: 180, 
+        damping: 18,
+        mass: 0.8,
       } 
     }
   };
 
-  // Explosive Merge Animation (The block swells then snaps back)
+  // Explosive Merge Animation
   const mergeVariants = {
-    initial: { scale: 1.2, opacity: 0 },
+    initial: { scale: 0.5, opacity: 0 },
     animate: { 
-      scale: [1.2, 0.9, 1.05, 1], 
+      scale: [1.4, 0.95, 1.05, 1], 
       opacity: 1,
       transition: { 
         duration: 0.4,
-        ease: "circOut"
+        ease: "easeOut"
       } 
     }
   };
 
   // "Stamped" Text Animation
   const textVariants = {
-    initial: { scale: 1.5, opacity: 0, filter: 'blur(4px)' },
+    initial: { scale: 0, opacity: 0, rotate: -20 },
     animate: { 
         scale: 1, 
         opacity: 1, 
-        filter: 'blur(0px)',
+        rotate: 0,
         transition: {
-            delay: 0.05, 
+            delay: 0.1, 
             type: "spring",
             stiffness: 400,
             damping: 12
@@ -69,9 +83,12 @@ export const Card: React.FC<CardProps> = ({ card, index, isTop, onDragStart, isH
 
   return (
     <motion.div
-      layout
-      initial={isMerge ? mergeVariants.initial : dropVariants.initial}
+      layoutId={card.id} // MAGICAL PROP: This enables fluid movement between columns
+      layout // Also animate layout changes within column
+      initial={isMerge ? mergeVariants.initial : (!card.isNew && !isHidden) ? false : dropVariants.initial} 
       animate={isMerge ? mergeVariants.animate : dropVariants.animate}
+      whileHover={isTop && !isHidden ? { scale: 1.05, zIndex: 100 } : {}}
+      whileTap={isTop && !isHidden ? { scale: 0.95 } : {}}
       className="absolute flex items-center justify-center select-none"
       style={{
         bottom: `${index * 25}%`, 
@@ -96,60 +113,64 @@ export const Card: React.FC<CardProps> = ({ card, index, isTop, onDragStart, isH
                 backgroundColor: style.background,
                 boxShadow: dangerGlow,
                 borderRadius: style.borderRadius,
+                ...ghostStyle
             }}
         >
-            <motion.span 
-                variants={textVariants}
-                initial="initial"
-                animate="animate"
-                key={card.value}
-                className="font-black text-4xl z-10"
-                style={{
-                    color: 'rgba(0,0,0,0.25)',
-                    textShadow: '0px 1px 0px rgba(255,255,255,0.25)',
-                }}
-            >
-                {card.value}
-            </motion.span>
+            {!isHidden && (
+                <>
+                <motion.span 
+                    variants={textVariants}
+                    initial="initial"
+                    animate="animate"
+                    key={card.value}
+                    className="font-black text-4xl z-10"
+                    style={{
+                        color: 'rgba(0,0,0,0.25)',
+                        textShadow: '0px 1px 0px rgba(255,255,255,0.25)',
+                    }}
+                >
+                    {card.value}
+                </motion.span>
 
-            <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-tr from-transparent via-white/10 to-white/20 pointer-events-none rounded-xl" />
+                <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-tr from-transparent via-white/10 to-white/20 pointer-events-none rounded-xl" />
 
-            {isMerge && (
-                <motion.div 
-                    initial={{ opacity: 0.6 }}
-                    animate={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="absolute inset-0 bg-white z-20 pointer-events-none mix-blend-overlay rounded-xl"
-                />
-            )}
+                {isMerge && (
+                    <motion.div 
+                        initial={{ opacity: 0.8, scale: 0.8 }}
+                        animate={{ opacity: 0, scale: 1.5 }}
+                        transition={{ duration: 0.4 }}
+                        className="absolute inset-0 bg-white z-20 pointer-events-none rounded-xl"
+                    />
+                )}
 
-            {isFull && (
-                <motion.div 
-                    animate={{ opacity: [0, 0.4, 0] }}
-                    transition={{ duration: 0.8, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute inset-0 bg-red-600 z-10 pointer-events-none mix-blend-overlay rounded-xl"
-                />
+                {isFull && (
+                    <motion.div 
+                        animate={{ opacity: [0, 0.4, 0] }}
+                        transition={{ duration: 0.8, repeat: Infinity, ease: "easeInOut" }}
+                        className="absolute inset-0 bg-red-600 z-10 pointer-events-none mix-blend-overlay rounded-xl"
+                    />
+                )}
+                </>
             )}
         </div>
 
-        {/* --- ENHANCED PARTICLE SYSTEM --- */}
-        {isMerge && (
+        {/* --- ENHANCED PARTICLE SYSTEM (Only show if not ghost) --- */}
+        {isMerge && !isHidden && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                 {/* 1. Shockwave Ring */}
                 <motion.div
-                    initial={{ scale: 0.9, opacity: 0.8, borderWidth: "6px" }}
-                    animate={{ scale: 2.2, opacity: 0, borderWidth: "0px" }}
+                    initial={{ scale: 0.5, opacity: 0.8, border: `8px solid ${style.accent}` }}
+                    animate={{ scale: 2.2, opacity: 0, border: `0px solid ${style.accent}` }}
                     transition={{ duration: 0.6, ease: "easeOut" }}
-                    className="absolute inset-0 border-white rounded-xl z-30"
-                    style={{ borderColor: style.accent }}
+                    className="absolute inset-0 rounded-xl z-30"
                 />
                 
                 {/* 2. Secondary Shockwave (Delayed) */}
                  <motion.div
-                    initial={{ scale: 0.8, opacity: 0, borderWidth: "4px" }}
-                    animate={{ scale: 1.8, opacity: 0, borderWidth: "0px" }}
+                    initial={{ scale: 0.5, opacity: 0, border: "4px solid white" }}
+                    animate={{ scale: 1.8, opacity: 0, border: "0px solid white" }}
                     transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
-                    className="absolute inset-0 border-white rounded-xl z-30"
+                    className="absolute inset-0 rounded-xl z-30"
                 />
 
                 {/* 3. Block Debris - Primary Color */}

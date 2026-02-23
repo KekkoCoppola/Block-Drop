@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useGameLogic } from './hooks/useGameLogic';
 import { Column } from './components/Column';
 import { NextCard } from './components/NextCard';
@@ -136,7 +137,14 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950 text-white flex flex-col no-select overflow-hidden">
+    <motion.div 
+      animate={comboEvent ? { 
+        x: [0, -4, 4, -4, 4, 0],
+        y: [0, 2, -2, 2, -2, 0]
+      } : {}}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 bg-slate-950 text-white flex flex-col no-select overflow-hidden"
+    >
       
       {/* Background Ambient Glow */}
       <div className="absolute top-[-20%] left-[-20%] w-[140%] h-[60%] bg-blue-500/10 blur-[100px] rounded-full pointer-events-none" />
@@ -210,8 +218,9 @@ const App: React.FC = () => {
 
                 {/* Next Card Indicator */}
                 <NextCard 
-                value={dragState ? dragState.value : nextCardValue} 
-                xPosition={dragX}
+                  value={dragState ? dragState.value : nextCardValue} 
+                  xPosition={dragX}
+                  isMoving={dragState?.type === 'existing'}
                 />
 
                 {/* Grid Container */}
@@ -252,13 +261,12 @@ const App: React.FC = () => {
       )}
 
       {/* Game Over Overlay */}
-      {isGameOver && (
-        <GameOverModal 
-          score={score} 
-          highScore={highScore} 
-          onRestart={confirmRestart}
-        />
-      )}
+      <GameOverModal 
+        isOpen={isGameOver}
+        score={score} 
+        highScore={highScore} 
+        onRestart={confirmRestart}
+      />
 
       {/* Reset Confirmation Modal */}
       <ConfirmationModal 
@@ -268,7 +276,7 @@ const App: React.FC = () => {
         onConfirm={confirmRestart}
         onCancel={() => setShowResetConfirm(false)}
       />
-    </div>
+    </motion.div>
   );
 };
 

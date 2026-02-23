@@ -140,7 +140,16 @@ export const useGameLogic = () => {
         setGrid(currentGrid);
         setScore(prev => prev + scoreDelta);
         
-        await new Promise(r => setTimeout(r, 250)); // Slightly faster merge
+        await new Promise(r => setTimeout(r, 400)); // Wait for merge animation
+
+        // Clear merging state for the next check
+        currentGrid = [...currentGrid];
+        currentGrid[colIndex] = [...currentGrid[colIndex]];
+        currentGrid[colIndex][currentGrid[colIndex].length - 1] = {
+            ...currentGrid[colIndex][currentGrid[colIndex].length - 1],
+            isMerging: false
+        };
+        setGrid(currentGrid);
       } else {
         keepChecking = false;
       }
@@ -166,6 +175,9 @@ export const useGameLogic = () => {
     
     setGrid(tempGrid);
     soundManager.playDrop();
+
+    // Allow drop animation to play visibly
+    await new Promise(r => setTimeout(r, 300));
 
     const nextVal = generateNextValue(maxValReached);
     setNextCardValue(nextVal);
@@ -208,6 +220,9 @@ export const useGameLogic = () => {
 
     setGrid(tempGrid);
     soundManager.playDrop();
+
+    // Allow drop animation to play visibly
+    await new Promise(r => setTimeout(r, 300));
 
     await processGravityAndMerges(tempGrid, toCol);
     

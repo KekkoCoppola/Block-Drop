@@ -15,12 +15,16 @@ export const ComboOverlay: React.FC<ComboOverlayProps> = ({ comboEvent }) => {
             key={comboEvent.id}
             initial={{ scale: 0.5, opacity: 0, rotate: -15, y: 50 }}
             animate={{ 
-              scale: [0.5, 1.5, 1.2], 
-              opacity: [0, 1, 0], 
-              rotate: [15, -10, 0],
-              y: -100
+              scale: [0.5, 1.4, 1.2, 1.2], 
+              opacity: [0, 1, 1, 0], 
+              rotate: [15, -5, 0, 0],
+              y: [50, -20, -150, -160]
             }}
-            transition={{ duration: 1.5, ease: "easeOut" }}
+            transition={{ 
+              duration: 1.2, 
+              times: [0, 0.2, 0.8, 1],
+              ease: "easeOut" 
+            }}
             className="flex flex-col items-center"
           >
             <h1 

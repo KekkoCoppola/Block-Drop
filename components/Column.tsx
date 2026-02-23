@@ -16,10 +16,10 @@ export const Column: React.FC<ColumnProps> = ({ cards, colIndex, onCardDragStart
 
   return (
     <div 
-      className={`relative h-full flex-1 group transition-colors duration-200 ${isActive ? 'bg-white/5' : ''}`}
+      className={`relative h-full flex-1 group transition-all duration-300 ${isActive ? 'bg-white/10 ring-2 ring-inset ring-white/20' : ''}`}
     >
-      {/* Active Highlight */}
-      <div className={`absolute inset-0 bg-gradient-to-b from-white/10 to-transparent opacity-0 transition-opacity ${isActive ? 'opacity-100' : ''} pointer-events-none`} />
+      {/* Active Highlight Glow */}
+      <div className={`absolute inset-0 bg-gradient-to-b from-blue-500/20 via-transparent to-transparent opacity-0 transition-opacity duration-300 ${isActive ? 'opacity-100' : ''} pointer-events-none`} />
 
       {/* Full Indicator (Subtle red glow at top) */}
       {isFull && (

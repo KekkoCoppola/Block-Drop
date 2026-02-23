@@ -93,7 +93,7 @@ export const StartMenu: React.FC<StartMenuProps> = ({ onStart, highScore }) => {
                     {/* Top Dropping Block */}
                     <motion.div 
                         animate={{ y: [-40, 0, -5, 0], rotate: [5, 0, 0, 0] }}
-                        transition={{ duration: 3, repeat: Infinity, times: [0, 0.3, 0.4, 1], ease: "bounceOut", repeatDelay: 1 }}
+                        transition={{ duration: 3, repeat: Infinity, times: [0, 0.3, 0.4, 1], ease: "easeOut", repeatDelay: 1 }}
                         className="absolute bottom-[40px] left-[16px] w-16 h-16 rounded-xl bg-yellow-400 shadow-[-4px_4px_0px_#a16207] z-20 border-t border-l border-white/40 flex items-center justify-center"
                     >
                         {/* Little number inside */}
@@ -174,7 +174,7 @@ export const StartMenu: React.FC<StartMenuProps> = ({ onStart, highScore }) => {
             </div>
             
             <p className="mt-8 text-slate-600 text-[10px] font-semibold tracking-wide">
-              v2.1 • MADE WITH REACT
+              v2.1
             </p>
           </motion.div>
         )}

@@ -26,16 +26,17 @@ export const getCardStyle = (value: number) => {
   
   // "Tetris" / Solid Plastic Style
   // We use inset shadows to create a high-contrast bevel effect
-  const bevelHighlight = 'inset 4px 4px 0px rgba(255, 255, 255, 0.4)';
-  const bevelShadow = 'inset -4px -4px 0px rgba(0, 0, 0, 0.2)';
-  const deepShadow = `0 6px 0 ${colors.shadow}`; // The "3D" part below the block
+  const bevelHighlight = 'inset 4px 4px 0px rgba(255, 255, 255, 0.5)';
+  const bevelShadow = 'inset -4px -4px 0px rgba(0, 0, 0, 0.3)';
+  const surfaceShine = 'inset 0 15px 15px -10px rgba(255, 255, 255, 0.3)';
+  const deepShadow = `0 8px 0 ${colors.shadow}`; // The "3D" part below the block
 
   return { 
     background: colors.bg,
     color: '#fff', 
-    boxShadow: `${bevelHighlight}, ${bevelShadow}, ${deepShadow}, 0 10px 10px rgba(0,0,0,0.3)`,
-    border: 'none', // Removed outline border for cleaner block look
-    borderRadius: '12px', // Slightly squarer than before
+    boxShadow: `${bevelHighlight}, ${bevelShadow}, ${surfaceShine}, ${deepShadow}, 0 12px 20px rgba(0,0,0,0.4)`,
+    border: '1px solid rgba(255,255,255,0.1)', 
+    borderRadius: '14px', 
     accent: colors.accent,
     shadowColor: colors.shadow
   };
