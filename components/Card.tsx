@@ -25,7 +25,7 @@ export const Card: React.FC<CardProps> = ({ card, index, isTop, onDragStart, isH
       transform: 'scale(0.85)',
       boxShadow: 'none',
       border: '2px dashed rgba(255,255,255,0.3)',
-      background: 'rgba(255,255,255,0.05)'
+      backgroundColor: 'rgba(255,255,255,0.05)'
   } : {};
 
   // CUTE & FLUID DROP ANIMATION
@@ -48,31 +48,29 @@ export const Card: React.FC<CardProps> = ({ card, index, isTop, onDragStart, isH
     }
   };
 
-  // Explosive Merge Animation
+  // Sharp Minimal Merge Animation
   const mergeVariants = {
-    initial: { scale: 0.5, opacity: 0 },
+    initial: { scale: 0.8, opacity: 0 },
     animate: { 
-      scale: [1.4, 0.95, 1.05, 1], 
+      scale: [1.2, 1], 
       opacity: 1,
       transition: { 
-        duration: 0.4,
-        ease: "easeOut"
+        duration: 0.3,
+        ease: [0.16, 1, 0.3, 1] // Sharp ease out
       } 
     }
   };
 
-  // "Stamped" Text Animation
+  // Sudden "Stamp" Text Animation
   const textVariants = {
-    initial: { scale: 0, opacity: 0, rotate: -20 },
+    initial: { scale: 0.5, opacity: 0 },
     animate: { 
         scale: 1, 
         opacity: 1, 
-        rotate: 0,
         transition: {
-            delay: 0.1, 
-            type: "spring",
-            stiffness: 400,
-            damping: 12
+            delay: 0.05, 
+            duration: 0.2,
+            ease: "easeOut"
         }
     }
   };
@@ -110,7 +108,7 @@ export const Card: React.FC<CardProps> = ({ card, index, isTop, onDragStart, isH
         <div 
             className="relative w-full h-full flex items-center justify-center transition-all duration-200 overflow-hidden"
             style={{
-                backgroundColor: style.background,
+                backgroundColor: style.backgroundColor,
                 boxShadow: dangerGlow,
                 borderRadius: style.borderRadius,
                 ...ghostStyle
@@ -134,6 +132,16 @@ export const Card: React.FC<CardProps> = ({ card, index, isTop, onDragStart, isH
 
                 <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-tr from-transparent via-white/10 to-white/20 pointer-events-none rounded-xl" />
 
+                {/* Glint Effect on Merge */}
+                {isMerge && (
+                    <motion.div 
+                        initial={{ left: '-100%', top: '-100%' }}
+                        animate={{ left: '100%', top: '100%' }}
+                        transition={{ duration: 0.6, delay: 0.2, ease: "easeInOut" }}
+                        className="absolute w-[200%] h-[200%] bg-gradient-to-br from-transparent via-white/40 to-transparent rotate-45 z-30 pointer-events-none"
+                    />
+                )}
+
                 {isMerge && (
                     <motion.div 
                         initial={{ opacity: 0.8, scale: 0.8 }}
@@ -154,99 +162,43 @@ export const Card: React.FC<CardProps> = ({ card, index, isTop, onDragStart, isH
             )}
         </div>
 
-        {/* --- ENHANCED PARTICLE SYSTEM (Only show if not ghost) --- */}
+        {/* --- MINIMAL COLOR EXPLOSION MERGE --- */}
         {isMerge && !isHidden && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                {/* 1. Shockwave Ring */}
+                {/* 1. The "Exploding" Card Body */}
                 <motion.div
-                    initial={{ scale: 0.5, opacity: 0.8, border: `8px solid ${style.accent}` }}
-                    animate={{ scale: 2.2, opacity: 0, border: `0px solid ${style.accent}` }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
-                    className="absolute inset-0 rounded-xl z-30"
+                    initial={{ scale: 1, opacity: 1 }}
+                    animate={{ 
+                        scale: 2.2 + (card.comboLevel || 0) * 0.2, 
+                        opacity: 0 
+                    }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                    className="absolute inset-0 rounded-xl z-20"
+                    style={{ 
+                        backgroundColor: style.backgroundColor,
+                        boxShadow: `0 0 30px ${style.accent}`
+                    }}
                 />
                 
-                {/* 2. Secondary Shockwave (Delayed) */}
-                 <motion.div
-                    initial={{ scale: 0.5, opacity: 0, border: "4px solid white" }}
-                    animate={{ scale: 1.8, opacity: 0, border: "0px solid white" }}
-                    transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
+                {/* 2. Sharp White Expansion Ring */}
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 1, border: '2px solid white' }}
+                    animate={{ 
+                        scale: 2.5, 
+                        opacity: 0,
+                        borderWidth: 0
+                    }}
+                    transition={{ duration: 0.4, ease: "circOut" }}
                     className="absolute inset-0 rounded-xl z-30"
                 />
 
-                {/* 3. Block Debris - Primary Color */}
-                {Array.from({ length: 8 }).map((_, i) => {
-                    const angle = (i / 8) * 360 + Math.random() * 20;
-                    const rad = angle * (Math.PI / 180);
-                    const dist = 140 + Math.random() * 40;
-                    
-                    return (
-                        <motion.div
-                            key={`debris-main-${i}`}
-                            initial={{ x: 0, y: 0, scale: 0.8, opacity: 1 }}
-                            animate={{ 
-                                x: Math.cos(rad) * dist, 
-                                y: Math.sin(rad) * dist, 
-                                scale: 0, 
-                                opacity: 0,
-                                rotate: Math.random() * 360
-                            }}
-                            transition={{ duration: 0.7, ease: "circOut" }}
-                            className="absolute w-6 h-6 z-20 rounded-md"
-                            style={{ 
-                              backgroundColor: style.background,
-                              boxShadow: 'inset -2px -2px 0 rgba(0,0,0,0.1)' 
-                            }}
-                        />
-                    );
-                })}
-
-                {/* 4. Accent Debris - Lighter Color */}
-                {Array.from({ length: 6 }).map((_, i) => {
-                    const angle = (i / 6) * 360 + 45 + Math.random() * 20;
-                    const rad = angle * (Math.PI / 180);
-                    const dist = 100 + Math.random() * 30;
-                    
-                    return (
-                        <motion.div
-                            key={`debris-accent-${i}`}
-                            initial={{ x: 0, y: 0, scale: 0.6, opacity: 1 }}
-                            animate={{ 
-                                x: Math.cos(rad) * dist, 
-                                y: Math.sin(rad) * dist, 
-                                scale: 0, 
-                                opacity: 0,
-                                rotate: -Math.random() * 360
-                            }}
-                            transition={{ duration: 0.5, ease: "easeOut" }}
-                            className="absolute w-4 h-4 z-20 rounded-full"
-                            style={{ 
-                              backgroundColor: style.accent,
-                            }}
-                        />
-                    );
-                })}
-
-                {/* 5. Fast Sparks - White */}
-                {Array.from({ length: 12 }).map((_, i) => {
-                    const angle = Math.random() * 360;
-                    const rad = angle * (Math.PI / 180);
-                    const dist = 150 + Math.random() * 100;
-                    
-                    return (
-                        <motion.div
-                            key={`spark-${i}`}
-                            initial={{ x: 0, y: 0, scale: 1 }}
-                            animate={{ 
-                                x: Math.cos(rad) * dist, 
-                                y: Math.sin(rad) * dist, 
-                                scale: 0, 
-                                opacity: 0 
-                            }}
-                            transition={{ duration: 0.3, ease: "easeOut" }}
-                            className="absolute w-1 h-1 rounded-full z-20 bg-white"
-                        />
-                    );
-                })}
+                {/* 3. Brief Impact Flash */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: [0, 0.6, 0] }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute inset-[-20%] bg-white z-40 rounded-xl blur-lg"
+                />
             </div>
         )}
     </motion.div>

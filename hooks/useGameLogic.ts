@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Grid, CardData, GameState, ComboEvent } from '../types';
-import { COLUMNS, MAX_ROWS, STORAGE_KEY, getComboText } from '../constants';
+import { COLUMNS, MAX_ROWS, STORAGE_KEY, getComboText, VIBRATION_PATTERNS } from '../constants';
 import { soundManager } from '../utils/sound';
 
 // Simple ID generator to avoid external dependencies like uuid
@@ -17,6 +17,7 @@ export const useGameLogic = () => {
   const [isGameStarted, setIsGameStarted] = useState(false);
   const [maxValReached, setMaxValReached] = useState(3);
   const [comboEvent, setComboEvent] = useState<ComboEvent | null>(null);
+  const [lastActionId, setLastActionId] = useState("");
   
   const isProcessingRef = useRef(false);
   const comboCountRef = useRef(0);
@@ -37,7 +38,7 @@ export const useGameLogic = () => {
         console.error("Failed to load save", e);
       }
     } else {
-      setNextCardValue(generateNextValue(3));
+      setNextCardValue(generateNextValue(3, 0));
     }
   }, []);
 
@@ -69,9 +70,17 @@ export const useGameLogic = () => {
     setIsGameStarted(false);
   };
 
-  const generateNextValue = (currentMax: number) => {
+  const generateNextValue = (currentMax: number, currentScore: number) => {
     const cap = Math.max(3, currentMax - 2);
-    return Math.floor(Math.random() * cap) + 1;
+    
+    // Difficulty factor: increases with score, maxes at 15,000 points
+    const difficulty = Math.min(1, currentScore / 15000);
+    
+    // Bias towards higher values: 1.0 (linear) to 0.4 (heavy bias towards high)
+    const bias = 1.0 - (difficulty * 0.6); 
+    const rand = Math.pow(Math.random(), bias);
+    
+    return Math.floor(rand * cap) + 1;
   };
 
   const checkMerge = useCallback(async (currentGrid: Grid, colIndex: number, addedCardIndex: number): Promise<{ grid: Grid; merged: boolean; scoreDelta: number }> => {
@@ -90,6 +99,7 @@ export const useGameLogic = () => {
         id: generateId(),
         value: newValue,
         isMerging: true,
+        comboLevel: comboCountRef.current + 1,
       };
 
       const newColumn = [...column];
@@ -100,6 +110,7 @@ export const useGameLogic = () => {
 
       comboCountRef.current += 1;
       soundManager.playMerge(comboCountRef.current);
+      soundManager.vibrate(comboCountRef.current > 1 ? VIBRATION_PATTERNS.COMBO : VIBRATION_PATTERNS.MERGE);
 
       if (comboCountRef.current > 1) {
           setComboEvent({
@@ -140,6 +151,11 @@ export const useGameLogic = () => {
         setGrid(currentGrid);
         setScore(prev => prev + scoreDelta);
         
+        // Hit-stop effect for high combos
+        if (comboCountRef.current >= 3) {
+            await new Promise(r => setTimeout(r, 100)); // Brief pause for impact
+        }
+
         await new Promise(r => setTimeout(r, 400)); // Wait for merge animation
 
         // Clear merging state for the next check
@@ -174,12 +190,14 @@ export const useGameLogic = () => {
     tempGrid[colIndex] = [...tempGrid[colIndex], newCard];
     
     setGrid(tempGrid);
+    setLastActionId(generateId());
     soundManager.playDrop();
+    soundManager.vibrate(VIBRATION_PATTERNS.DROP);
 
     // Allow drop animation to play visibly
     await new Promise(r => setTimeout(r, 300));
 
-    const nextVal = generateNextValue(maxValReached);
+    const nextVal = generateNextValue(maxValReached, score);
     setNextCardValue(nextVal);
 
     await processGravityAndMerges(tempGrid, colIndex);
@@ -188,6 +206,7 @@ export const useGameLogic = () => {
         if (prevGrid.every(c => c.length >= MAX_ROWS)) {
             setIsGameOver(true);
             soundManager.playGameOver();
+            soundManager.vibrate(VIBRATION_PATTERNS.GAME_OVER);
         }
         return prevGrid;
     });
@@ -219,7 +238,9 @@ export const useGameLogic = () => {
     tempGrid[toCol] = [...tempGrid[toCol], cardToMove]; 
 
     setGrid(tempGrid);
+    setLastActionId(generateId());
     soundManager.playDrop();
+    soundManager.vibrate(VIBRATION_PATTERNS.DROP);
 
     // Allow drop animation to play visibly
     await new Promise(r => setTimeout(r, 300));
@@ -230,6 +251,7 @@ export const useGameLogic = () => {
         if (prevGrid.every(c => c.length >= MAX_ROWS)) {
             setIsGameOver(true);
             soundManager.playGameOver();
+            soundManager.vibrate(VIBRATION_PATTERNS.GAME_OVER);
         }
         return prevGrid;
     });
@@ -240,7 +262,7 @@ export const useGameLogic = () => {
   const resetGame = () => {
     setGrid(createInitialGrid());
     setScore(0);
-    setNextCardValue(generateNextValue(3));
+    setNextCardValue(generateNextValue(3, 0));
     setIsGameOver(false);
     setMaxValReached(3);
     setComboEvent(null);
@@ -255,6 +277,7 @@ export const useGameLogic = () => {
     isGameOver,
     isGameStarted,
     comboEvent,
+    lastActionId,
     startGame,
     pauseGame,
     dropCard,

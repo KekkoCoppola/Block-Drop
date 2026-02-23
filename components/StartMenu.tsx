@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Star, Settings, X, Volume2, Github } from 'lucide-react';
-import { CARD_COLORS } from '../constants';
+import { Play, Star, Settings, X, Volume2, Github, Smartphone } from 'lucide-react';
+import { CARD_COLORS, VIBRATION_PATTERNS } from '../constants';
 import { soundManager } from '../utils/sound';
 
 interface StartMenuProps {
@@ -12,11 +12,21 @@ interface StartMenuProps {
 export const StartMenu: React.FC<StartMenuProps> = ({ onStart, highScore }) => {
   const [activeModal, setActiveModal] = useState<'none' | 'options' | 'credits'>('none');
   const [volume, setVolume] = useState(50);
+  const [vibrationEnabled, setVibrationEnabled] = useState(soundManager.isVibrationEnabled());
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value);
     setVolume(val);
     soundManager.setVolume(val / 100);
+  };
+
+  const toggleVibration = () => {
+    const newState = !vibrationEnabled;
+    setVibrationEnabled(newState);
+    soundManager.toggleVibration(newState);
+    if (newState) {
+      soundManager.vibrate(VIBRATION_PATTERNS.DROP);
+    }
   };
 
   // Generate random floating blocks for background
@@ -140,7 +150,10 @@ export const StartMenu: React.FC<StartMenuProps> = ({ onStart, highScore }) => {
 
             {/* Main Action Button */}
             <button
-              onClick={onStart}
+              onClick={() => {
+                soundManager.vibrate(VIBRATION_PATTERNS.DROP);
+                onStart();
+              }}
               className="w-full group relative h-20 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-2xl shadow-[0_6px_0_#1e3a8a,0_15px_20px_rgba(0,0,0,0.4)] active:shadow-[0_0_0_#1e3a8a] active:translate-y-[6px] transition-all mb-6 overflow-hidden"
             >
               <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -158,14 +171,22 @@ export const StartMenu: React.FC<StartMenuProps> = ({ onStart, highScore }) => {
             {/* Secondary Buttons Row */}
             <div className="flex gap-4 w-full">
                 <button 
-                  onClick={() => setActiveModal('options')}
+                  onClick={() => {
+                    soundManager.vibrate(10);
+                    soundManager.playClick();
+                    setActiveModal('options');
+                  }}
                   className="flex-1 py-4 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold text-slate-300 shadow-[0_4px_0_#1e293b] active:shadow-none active:translate-y-[4px] transition-all flex items-center justify-center gap-2 group"
                 >
                     <Settings size={18} className="group-hover:rotate-90 transition-transform duration-500" />
                     <span className="text-xs uppercase">Opzioni</span>
                 </button>
                  <button 
-                  onClick={() => setActiveModal('credits')}
+                  onClick={() => {
+                    soundManager.vibrate(10);
+                    soundManager.playClick();
+                    setActiveModal('credits');
+                  }}
                   className="flex-1 py-4 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold text-slate-300 shadow-[0_4px_0_#1e293b] active:shadow-none active:translate-y-[4px] transition-all flex items-center justify-center gap-2 group"
                  >
                     <Star size={18} className="group-hover:text-yellow-400 transition-colors" />
@@ -215,6 +236,25 @@ export const StartMenu: React.FC<StartMenuProps> = ({ onStart, highScore }) => {
                   onChange={handleVolumeChange}
                   className="w-full h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-700/50">
+                <div className="flex items-center gap-3 text-slate-300">
+                  <Smartphone size={20} className={vibrationEnabled ? "text-blue-400" : "text-slate-500"} />
+                  <div className="flex flex-col">
+                    <span className="font-bold text-sm">Feedback Aptico</span>
+                    <span className="text-[10px] text-slate-500">Vibrazione su mobile</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={toggleVibration}
+                  className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${vibrationEnabled ? 'bg-blue-600' : 'bg-slate-700'}`}
+                >
+                  <motion.div 
+                    animate={{ x: vibrationEnabled ? 24 : 4 }}
+                    className="absolute top-1 left-0 w-4 h-4 bg-white rounded-full shadow-sm"
+                  />
+                </button>
               </div>
             </motion.div>
           </div>

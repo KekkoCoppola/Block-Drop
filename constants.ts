@@ -32,7 +32,7 @@ export const getCardStyle = (value: number) => {
   const deepShadow = `0 8px 0 ${colors.shadow}`; // The "3D" part below the block
 
   return { 
-    background: colors.bg,
+    backgroundColor: colors.bg,
     color: '#fff', 
     boxShadow: `${bevelHighlight}, ${bevelShadow}, ${surfaceShine}, ${deepShadow}, 0 12px 20px rgba(0,0,0,0.4)`,
     border: '1px solid rgba(255,255,255,0.1)', 
@@ -50,4 +50,11 @@ export const getComboText = (combo: number): string => {
   if (combo === 5) return "MEGA!";
   if (combo === 6) return "ULTRA!";
   return "INARRESTABILE!";
+};
+
+export const VIBRATION_PATTERNS = {
+  DROP: 10,
+  MERGE: 15,
+  COMBO: [10, 30, 10],
+  GAME_OVER: [50, 100, 50, 100, 50],
 };

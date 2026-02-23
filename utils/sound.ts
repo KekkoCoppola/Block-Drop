@@ -4,6 +4,7 @@ class WebAudioSoundManager implements SoundManager {
   private ctx: AudioContext | null = null;
   private masterVolume: number = 0.4;
   private musicVolume: number = 0.25; // Slightly louder for rhythm
+  private vibrationEnabled: boolean = true;
   private noiseBuffer: AudioBuffer | null = null;
   
   // Music Scheduler State
@@ -235,13 +236,16 @@ class WebAudioSoundManager implements SoundManager {
     const ctx = this.getCtx();
     if (!ctx || !this.noiseBuffer) return;
     const t = ctx.currentTime;
+    
+    // Variation: Random pitch shift
+    const pitchShift = Math.random() * 50 - 25;
 
     // Hard Plastic Impact
     const noiseSrc = ctx.createBufferSource();
     noiseSrc.buffer = this.noiseBuffer;
     const noiseFilter = ctx.createBiquadFilter();
     noiseFilter.type = 'lowpass';
-    noiseFilter.frequency.setValueAtTime(800, t); 
+    noiseFilter.frequency.setValueAtTime(800 + pitchShift, t); 
     const noiseGain = ctx.createGain();
     noiseGain.gain.setValueAtTime(0.8 * this.masterVolume, t);
     noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.1); 
@@ -255,8 +259,8 @@ class WebAudioSoundManager implements SoundManager {
     // Body Thud
     const osc = ctx.createOscillator();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(200, t);
-    osc.frequency.exponentialRampToValueAtTime(50, t + 0.1);
+    osc.frequency.setValueAtTime(200 + pitchShift, t);
+    osc.frequency.exponentialRampToValueAtTime(50 + pitchShift/2, t + 0.1);
     const oscGain = ctx.createGain();
     oscGain.gain.setValueAtTime(0.6 * this.masterVolume, t);
     oscGain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
@@ -271,6 +275,21 @@ class WebAudioSoundManager implements SoundManager {
     if (!ctx || !this.noiseBuffer) return;
     const t = ctx.currentTime;
     const pitchMod = Math.min(comboLevel, 10) * 100; 
+    
+    // Add a harmonic layer for higher combos
+    if (comboLevel > 2) {
+      const harmOsc = ctx.createOscillator();
+      harmOsc.type = 'triangle';
+      harmOsc.frequency.setValueAtTime(400 + pitchMod * 1.5, t);
+      harmOsc.frequency.exponentialRampToValueAtTime(1200 + pitchMod * 1.5, t + 0.1);
+      const harmGain = ctx.createGain();
+      harmGain.gain.setValueAtTime(0.2 * this.masterVolume, t);
+      harmGain.gain.linearRampToValueAtTime(0, t + 0.1);
+      harmOsc.connect(harmGain);
+      harmGain.connect(ctx.destination);
+      harmOsc.start(t);
+      harmOsc.stop(t + 0.1);
+    }
 
     // Slide
     const slideOsc = ctx.createOscillator();
@@ -349,6 +368,62 @@ class WebAudioSoundManager implements SoundManager {
     gain.connect(ctx.destination);
     osc.start(t);
     osc.stop(t + 1);
+  }
+
+  playClick() {
+    const ctx = this.getCtx();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, t);
+    osc.frequency.exponentialRampToValueAtTime(400, t + 0.05);
+    
+    gain.gain.setValueAtTime(0.2 * this.masterVolume, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.05);
+  }
+
+  playPop() {
+    const ctx = this.getCtx();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(400, t);
+    osc.frequency.exponentialRampToValueAtTime(1200, t + 0.08);
+    
+    gain.gain.setValueAtTime(0.3 * this.masterVolume, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.08);
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.08);
+  }
+
+  vibrate(pattern: number | number[] = 10) {
+    if (this.vibrationEnabled && typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(pattern);
+    }
+  }
+
+  toggleVibration(enabled: boolean) {
+    this.vibrationEnabled = enabled;
+  }
+
+  isVibrationEnabled() {
+    return this.vibrationEnabled;
   }
 }
 

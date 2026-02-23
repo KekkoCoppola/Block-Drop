@@ -7,6 +7,7 @@ import { GameOverModal } from './components/GameOverModal';
 import { ComboOverlay } from './components/ComboOverlay';
 import { StartMenu } from './components/StartMenu';
 import { ConfirmationModal } from './components/ConfirmationModal';
+import { BackgroundEffects } from './components/BackgroundEffects';
 import { COLUMNS } from './constants';
 import { Trophy, RotateCcw, Home, Volume2, VolumeX } from 'lucide-react';
 import { soundManager } from './utils/sound';
@@ -38,8 +39,20 @@ const App: React.FC = () => {
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isMusicOn, setIsMusicOn] = useState(false);
+  const [isNewRecord, setIsNewRecord] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Track if we just broke the high score
+  useEffect(() => {
+    if (score > highScore && highScore > 0 && !isNewRecord) {
+      setIsNewRecord(true);
+      soundManager.vibrate(50);
+    }
+    if (score === 0) {
+      setIsNewRecord(false);
+    }
+  }, [score, highScore, isNewRecord]);
 
   // Initialize Sound Context on mount (user interaction required for play)
   useEffect(() => {
@@ -139,15 +152,32 @@ const App: React.FC = () => {
   return (
     <motion.div 
       animate={comboEvent ? { 
-        x: [0, -4, 4, -4, 4, 0],
-        y: [0, 2, -2, 2, -2, 0]
+        x: [0, -4 * Math.min(comboEvent.count, 4), 4 * Math.min(comboEvent.count, 4), 0],
+        y: [0, 2 * Math.min(comboEvent.count, 4), -2 * Math.min(comboEvent.count, 4), 0],
+        scale: comboEvent.count >= 3 ? [1, 1.01, 1] : 1
       } : {}}
-      transition={{ duration: 0.2 }}
-      className="fixed inset-0 bg-slate-950 text-white flex flex-col no-select overflow-hidden"
+      transition={{ duration: 0.15, ease: "linear" }}
+      className="fixed inset-0 bg-slate-950 text-white flex flex-col no-select overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]"
     >
       
       {/* Background Ambient Glow */}
       <div className="absolute top-[-20%] left-[-20%] w-[140%] h-[60%] bg-blue-500/10 blur-[100px] rounded-full pointer-events-none" />
+
+      <BackgroundEffects comboCount={comboEvent?.count || 0} grid={grid} />
+
+      {/* Combo Flash Overlay */}
+      <AnimatePresence>
+        {comboEvent && comboEvent.count >= 3 && (
+            <motion.div 
+                key={`flash-${comboEvent.id}`}
+                initial={{ opacity: 0.3 }}
+                animate={{ opacity: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="absolute inset-0 bg-white z-[5] pointer-events-none"
+            />
+        )}
+      </AnimatePresence>
 
       {/* Start Menu */}
       {!isGameStarted && <StartMenu onStart={startGame} highScore={highScore} />}
@@ -156,51 +186,125 @@ const App: React.FC = () => {
       {isGameStarted && (
         <>
             {/* Hero Score Section */}
-            <div className="relative pt-10 pb-4 flex flex-col items-center justify-center z-10">
+            <div className="relative pt-8 pb-2 flex flex-col items-center justify-center z-10">
                 
                 {/* Top Controls Row */}
-                <div className="absolute top-4 w-full px-6 flex justify-between items-center text-slate-400">
-                {/* HOME BUTTON */}
-                <button 
-                    onClick={pauseGame}
-                    className="p-2 rounded-full bg-slate-900/50 border border-slate-800 hover:bg-slate-800 transition-colors"
-                >
-                    <Home size={16} />
-                </button>
-
-                <div className="flex items-center gap-2 bg-slate-900/50 px-3 py-1 rounded-full border border-slate-800">
-                    <Trophy size={14} className="text-yellow-500" />
-                    <span className="font-bold text-sm tracking-wide">{highScore}</span>
-                </div>
-                
-                <div className="flex gap-2">
-                    {/* MUSIC TOGGLE */}
+                <div className="absolute top-2 w-full px-6 flex items-center text-slate-400">
+                  <div className="flex-1 flex justify-start">
+                    {/* HOME BUTTON */}
                     <button 
-                        onClick={toggleMusic}
-                        className={`p-2 rounded-full border transition-colors ${
-                            isMusicOn 
-                            ? 'bg-blue-600/20 border-blue-500/50 text-blue-400' 
-                            : 'bg-slate-900/50 border-slate-800 hover:bg-slate-800'
-                        }`}
-                    >
-                        {isMusicOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
-                    </button>
-
-                    {/* RESTART */}
-                    <button 
-                        onClick={handleRestartClick}
+                        onClick={() => {
+                            soundManager.vibrate(10);
+                            soundManager.playPop();
+                            pauseGame();
+                        }}
                         className="p-2 rounded-full bg-slate-900/50 border border-slate-800 hover:bg-slate-800 transition-colors"
                     >
-                        <RotateCcw size={16} />
+                        <Home size={16} />
                     </button>
-                </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 bg-slate-900/50 px-3 py-1 rounded-full border border-slate-800">
+                      <Trophy size={14} className="text-yellow-500" />
+                      <span className="font-bold text-sm tracking-wide">{highScore}</span>
+                  </div>
+                  
+                  <div className="flex-1 flex justify-end gap-2">
+                      {/* MUSIC TOGGLE */}
+                      <button 
+                          onClick={() => {
+                              soundManager.vibrate(10);
+                              soundManager.playClick();
+                              toggleMusic();
+                          }}
+                          className={`p-2 rounded-full border transition-colors ${
+                              isMusicOn 
+                              ? 'bg-blue-600/20 border-blue-500/50 text-blue-400' 
+                              : 'bg-slate-900/50 border-slate-800 hover:bg-slate-800'
+                          }`}
+                      >
+                          {isMusicOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                      </button>
+
+                      {/* RESTART */}
+                      <button 
+                          onClick={() => {
+                              soundManager.vibrate(10);
+                              soundManager.playPop();
+                              handleRestartClick();
+                          }}
+                          className="p-2 rounded-full bg-slate-900/50 border border-slate-800 hover:bg-slate-800 transition-colors"
+                      >
+                          <RotateCcw size={16} />
+                      </button>
+                  </div>
                 </div>
 
                 {/* Big Central Score */}
-                <div className="flex flex-col items-center mt-6">
-                <h1 className="text-[5rem] font-black leading-none tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-400 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
+                <div className="flex flex-col items-center mt-6 relative">
+                <AnimatePresence>
+                    {isNewRecord && (
+                        <>
+                            {/* Confetti-like burst */}
+                            {Array.from({ length: 12 }).map((_, i) => (
+                                <motion.div
+                                    key={`confetti-${i}`}
+                                    initial={{ x: 0, y: 0, scale: 0 }}
+                                    animate={{ 
+                                        x: (Math.random() - 0.5) * 300, 
+                                        y: (Math.random() - 0.5) * 200 - 50,
+                                        scale: [0, 1, 0],
+                                        rotate: Math.random() * 360
+                                    }}
+                                    transition={{ duration: 1, ease: "easeOut" }}
+                                    className="absolute w-2 h-2 bg-yellow-400 rounded-sm z-0"
+                                />
+                            ))}
+                            
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.5, y: 20 }}
+                                animate={{ 
+                                    opacity: 1, 
+                                    scale: [1, 1.1, 1], 
+                                    y: 0,
+                                    boxShadow: [
+                                        "0 0 20px rgba(234,179,8,0.5)",
+                                        "0 0 40px rgba(234,179,8,0.8)",
+                                        "0 0 20px rgba(234,179,8,0.5)"
+                                    ]
+                                }}
+                                transition={{ 
+                                    scale: { repeat: Infinity, duration: 2 },
+                                    boxShadow: { repeat: Infinity, duration: 2 }
+                                }}
+                                className="absolute -top-8 bg-yellow-500 text-slate-950 text-[10px] font-black px-4 py-1.5 rounded-full z-20"
+                            >
+                                NUOVO RECORD!
+                            </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>
+
+                <div className="absolute -right-12 top-1/2 -translate-y-1/2 flex flex-col items-center opacity-40">
+                    <span className="text-[8px] font-bold tracking-widest uppercase text-slate-500">LV</span>
+                    <span className="text-xl font-black text-slate-400 leading-none">{Math.floor(score / 3000) + 1}</span>
+                </div>
+
+                <motion.h1 
+                    key={score}
+                    initial={{ scale: 1.1, y: -5 }}
+                    animate={{ 
+                        scale: isNewRecord ? [1, 1.2, 1] : 1, 
+                        y: 0,
+                        color: isNewRecord ? '#FACC15' : '#FFFFFF',
+                        textShadow: isNewRecord 
+                            ? '0 0 30px rgba(250, 204, 21, 0.6)' 
+                            : '0 0 15px rgba(255,255,255,0.3)'
+                    }}
+                    className="text-[5rem] font-black leading-none tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all duration-300"
+                >
                     {score}
-                </h1>
+                </motion.h1>
                 <p className="text-blue-400/60 font-bold uppercase tracking-[0.3em] text-[0.6rem] mt-1">PUNTEGGIO</p>
                 </div>
             </div>

@@ -3,6 +3,7 @@ export interface CardData {
   id: string;
   value: number;
   isMerging?: boolean;
+  comboLevel?: number;
   isNew?: boolean;
 }
 
@@ -22,7 +23,12 @@ export interface SoundManager {
   playDrop: () => void;
   playMerge: (comboLevel: number) => void;
   playGameOver: () => void;
+  playClick: () => void;
+  playPop: () => void;
   toggleMusic: (shouldPlay: boolean) => void;
+  toggleVibration: (enabled: boolean) => void;
+  isVibrationEnabled: () => boolean;
+  vibrate: (pattern?: number | number[]) => void;
   init: () => void; // Initialize context
 }
 

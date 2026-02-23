@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
+import { soundManager } from '../utils/sound';
 
 interface GameOverModalProps {
   isOpen: boolean;
@@ -41,7 +42,10 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({ isOpen, score, hig
 
             <div className="space-y-3">
               <button 
-                onClick={onRestart}
+                onClick={() => {
+                  soundManager.playPop();
+                  onRestart();
+                }}
                 className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-white font-bold text-lg flex items-center justify-center gap-2 transition-colors shadow-lg shadow-blue-600/30"
               >
                 <RefreshCw size={20} />

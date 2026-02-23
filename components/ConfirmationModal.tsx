@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { soundManager } from '../utils/sound';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -30,13 +31,19 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, on
             
             <div className="flex gap-3">
               <button 
-                onClick={onCancel}
+                onClick={() => {
+                  soundManager.playClick();
+                  onCancel();
+                }}
                 className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold text-sm transition-colors"
               >
                 Annulla
               </button>
               <button 
-                onClick={onConfirm}
+                onClick={() => {
+                  soundManager.playPop();
+                  onConfirm();
+                }}
                 className="flex-1 py-3 bg-red-500 hover:bg-red-400 rounded-xl text-white font-bold text-sm shadow-lg shadow-red-500/20 transition-colors"
               >
                 Conferma

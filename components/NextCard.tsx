@@ -40,7 +40,7 @@ export const NextCard: React.FC<NextCardProps> = ({ value, xPosition, isMoving }
         className="w-20 h-24 flex items-center justify-center shadow-2xl overflow-hidden relative"
         style={{
           // Base styles
-          background: style.background,
+          backgroundColor: style.backgroundColor,
           border: style.border,
           boxShadow: `0 20px 25px -5px rgba(0, 0, 0, 0.5), ${style.boxShadow}`,
           borderRadius: '16px',
