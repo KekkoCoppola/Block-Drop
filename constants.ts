@@ -53,8 +53,8 @@ export const getComboText = (combo: number): string => {
 };
 
 export const VIBRATION_PATTERNS = {
-  DROP: 10,
-  MERGE: 15,
-  COMBO: [10, 30, 10],
-  GAME_OVER: [50, 100, 50, 100, 50],
+  DROP: 15,
+  MERGE: 30,
+  COMBO: [20, 40, 20],
+  GAME_OVER: [100, 150, 100, 150, 100],
 };

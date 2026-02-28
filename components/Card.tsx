@@ -1,7 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, memo } from 'react';
 import { motion } from 'framer-motion';
 import { CardData } from '../types';
 import { getCardStyle } from '../constants';
+import { CardBody } from './CardBody';
+import { MergeParticles } from './MergeParticles';
 
 interface CardProps {
   card: CardData;
@@ -10,40 +12,57 @@ interface CardProps {
   onDragStart?: (e: React.PointerEvent) => void;
   isHidden?: boolean; 
   isFull?: boolean;
+  columnHeight?: number;
 }
 
-export const Card: React.FC<CardProps> = ({ card, index, isTop, onDragStart, isHidden, isFull }) => {
+export const Card: React.FC<CardProps> = memo(({ card, index, isTop, onDragStart, isHidden, isFull, columnHeight }) => {
   const style = getCardStyle(card.value);
   const isMerge = card.isMerging;
   
   // Memoize random rotation so it doesn't change on re-renders, only on mount
   const randomRotate = useMemo(() => Math.random() * 20 - 10, []);
 
+  // Calculate natural Y from top (relative to container)
+  // bottom: index * 25% means natural Y from top is:
+  // columnHeight - (index * 0.25 * columnHeight) - cardHeight
+  // cardHeight is roughly 0.24 * columnHeight
+  const naturalYFromTop = columnHeight ? columnHeight - (index * 0.25 * columnHeight) - (0.24 * columnHeight) : 0;
+  
+  // initial y relative to natural position
+  const initialY = (card.dropFromY !== undefined && columnHeight) 
+    ? card.dropFromY - naturalYFromTop 
+    : -800;
+
   // Ghost Style (When being dragged from this column)
   const ghostStyle = isHidden ? {
-      opacity: 0.4,
-      transform: 'scale(0.85)',
-      boxShadow: 'none',
-      border: '2px dashed rgba(255,255,255,0.3)',
-      backgroundColor: 'rgba(255,255,255,0.05)'
+      opacity: 0.6,
+      transform: 'scale(0.9)',
+      boxShadow: 'inset 0 0 20px rgba(255,255,255,0.1)',
+      border: '2px dashed rgba(255,255,255,0.4)',
+      backgroundColor: 'rgba(255,255,255,0.02)'
   } : {};
 
-  // CUTE & FLUID DROP ANIMATION
+  // CLEAN & DIRECT DROP ANIMATION
   const dropVariants = {
     initial: { 
-      scale: 0.8, 
-      y: -1000, 
-      rotate: randomRotate 
+      scale: 1, 
+      y: initialY, 
+      rotate: 0,
+      opacity: card.dropFromY !== undefined ? 1 : 0
     },
     animate: { 
-      scale: 1, 
+      scale: 1,
       y: 0, 
       rotate: 0, 
+      opacity: 1,
       transition: { 
-        type: "spring", 
-        stiffness: 180, 
-        damping: 18,
-        mass: 0.8,
+        y: {
+          type: "spring", 
+          stiffness: 400, 
+          damping: 40,
+          mass: 1,
+        },
+        opacity: { duration: 0.2 }
       } 
     }
   };
@@ -65,13 +84,13 @@ export const Card: React.FC<CardProps> = ({ card, index, isTop, onDragStart, isH
   const textVariants = {
     initial: { scale: 0.5, opacity: 0 },
     animate: { 
-        scale: 1, 
-        opacity: 1, 
-        transition: {
-            delay: 0.05, 
-            duration: 0.2,
-            ease: "easeOut"
-        }
+      scale: 1, 
+      opacity: 1, 
+      transition: {
+        delay: 0.05, 
+        duration: 0.2,
+        ease: "easeOut"
+      }
     }
   };
 
@@ -81,12 +100,10 @@ export const Card: React.FC<CardProps> = ({ card, index, isTop, onDragStart, isH
 
   return (
     <motion.div
-      layoutId={card.id} // MAGICAL PROP: This enables fluid movement between columns
-      layout // Also animate layout changes within column
-      initial={isMerge ? mergeVariants.initial : (!card.isNew && !isHidden) ? false : dropVariants.initial} 
+      initial={isMerge ? mergeVariants.initial : dropVariants.initial} 
       animate={isMerge ? mergeVariants.animate : dropVariants.animate}
-      whileHover={isTop && !isHidden ? { scale: 1.05, zIndex: 100 } : {}}
-      whileTap={isTop && !isHidden ? { scale: 0.95 } : {}}
+      whileHover={!isHidden ? { scale: 1.05, zIndex: 100 } : {}}
+      whileTap={!isHidden ? { scale: 0.95 } : {}}
       className="absolute flex items-center justify-center select-none"
       style={{
         bottom: `${index * 25}%`, 
@@ -96,74 +113,28 @@ export const Card: React.FC<CardProps> = ({ card, index, isTop, onDragStart, isH
         left: '3%',
         zIndex: isMerge ? 50 : index, 
         touchAction: 'none',
-        cursor: isTop ? 'grab' : 'default',
+        cursor: 'grab',
+        willChange: 'transform, opacity',
       }}
       onPointerDown={(e) => {
-        if (isTop && onDragStart) {
+        if (onDragStart) {
           onDragStart(e);
         }
       }}
     >
         {/* Main Card Body */}
-        <div 
-            className="relative w-full h-full flex items-center justify-center transition-all duration-200 overflow-hidden"
-            style={{
-                backgroundColor: style.backgroundColor,
-                boxShadow: dangerGlow,
-                borderRadius: style.borderRadius,
-                ...ghostStyle
-            }}
-        >
-            {!isHidden && (
-                <>
-                <motion.span 
-                    variants={textVariants}
-                    initial="initial"
-                    animate="animate"
-                    key={card.value}
-                    className="font-black text-4xl z-10"
-                    style={{
-                        color: 'rgba(0,0,0,0.25)',
-                        textShadow: '0px 1px 0px rgba(255,255,255,0.25)',
-                    }}
-                >
-                    {card.value}
-                </motion.span>
-
-                <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-tr from-transparent via-white/10 to-white/20 pointer-events-none rounded-xl" />
-
-                {/* Glint Effect on Merge */}
-                {isMerge && (
-                    <motion.div 
-                        initial={{ left: '-100%', top: '-100%' }}
-                        animate={{ left: '100%', top: '100%' }}
-                        transition={{ duration: 0.6, delay: 0.2, ease: "easeInOut" }}
-                        className="absolute w-[200%] h-[200%] bg-gradient-to-br from-transparent via-white/40 to-transparent rotate-45 z-30 pointer-events-none"
-                    />
-                )}
-
-                {isMerge && (
-                    <motion.div 
-                        initial={{ opacity: 0.8, scale: 0.8 }}
-                        animate={{ opacity: 0, scale: 1.5 }}
-                        transition={{ duration: 0.4 }}
-                        className="absolute inset-0 bg-white z-20 pointer-events-none rounded-xl"
-                    />
-                )}
-
-                {isFull && (
-                    <motion.div 
-                        animate={{ opacity: [0, 0.4, 0] }}
-                        transition={{ duration: 0.8, repeat: Infinity, ease: "easeInOut" }}
-                        className="absolute inset-0 bg-red-600 z-10 pointer-events-none mix-blend-overlay rounded-xl"
-                    />
-                )}
-                </>
-            )}
-        </div>
+        <CardBody 
+            value={card.value}
+            isMerge={isMerge}
+            isFull={isFull}
+            isHidden={isHidden}
+            styleOverride={ghostStyle}
+        />
 
         {/* --- MINIMAL COLOR EXPLOSION MERGE --- */}
         {isMerge && !isHidden && (
+            <>
+            <MergeParticles color={style.accent} />
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                 {/* 1. The "Exploding" Card Body */}
                 <motion.div
@@ -200,7 +171,8 @@ export const Card: React.FC<CardProps> = ({ card, index, isTop, onDragStart, isH
                     className="absolute inset-[-20%] bg-white z-40 rounded-xl blur-lg"
                 />
             </div>
+            </>
         )}
     </motion.div>
   );
-};
+});

@@ -13,6 +13,7 @@ export const useGameLogic = () => {
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [nextCardValue, setNextCardValue] = useState(1);
+  const [secondNextCardValue, setSecondNextCardValue] = useState(1);
   const [isGameOver, setIsGameOver] = useState(false);
   const [isGameStarted, setIsGameStarted] = useState(false);
   const [maxValReached, setMaxValReached] = useState(3);
@@ -32,13 +33,20 @@ export const useGameLogic = () => {
         setScore(parsed.score);
         setHighScore(parsed.highScore);
         setNextCardValue(parsed.nextCardValue);
+        setSecondNextCardValue(parsed.secondNextCardValue || generateNextValue(parsed.maxValReached, parsed.score));
         setIsGameOver(parsed.isGameOver);
         setMaxValReached(parsed.maxValReached);
+        if (parsed.isGameStarted) {
+          setIsGameStarted(true);
+        }
       } catch (e) {
         console.error("Failed to load save", e);
       }
     } else {
-      setNextCardValue(generateNextValue(3, 0));
+      const first = generateNextValue(3, 0);
+      const second = generateNextValue(3, 0);
+      setNextCardValue(first);
+      setSecondNextCardValue(second);
     }
   }, []);
 
@@ -49,12 +57,13 @@ export const useGameLogic = () => {
       score,
       highScore,
       nextCardValue,
+      secondNextCardValue,
       isGameOver,
       isGameStarted,
       maxValReached,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [grid, score, highScore, nextCardValue, isGameOver, isGameStarted, maxValReached]);
+  }, [grid, score, highScore, nextCardValue, secondNextCardValue, isGameOver, isGameStarted, maxValReached]);
 
   useEffect(() => {
     if (score > highScore) {
@@ -174,7 +183,7 @@ export const useGameLogic = () => {
     return currentGrid;
   }, [checkMerge, maxValReached]);
 
-  const dropCard = useCallback(async (colIndex: number) => {
+  const dropCard = useCallback(async (colIndex: number, dropFromY?: number) => {
     if (isGameOver || isProcessingRef.current || !isGameStarted) return;
     
     if (grid[colIndex].length >= MAX_ROWS) {
@@ -185,7 +194,12 @@ export const useGameLogic = () => {
     comboCountRef.current = 0;
     setComboEvent(null); 
 
-    const newCard: CardData = { id: generateId(), value: nextCardValue, isNew: true };
+    const newCard: CardData = { 
+        id: generateId(), 
+        value: nextCardValue, 
+        isNew: true,
+        dropFromY 
+    };
     const tempGrid = [...grid];
     tempGrid[colIndex] = [...tempGrid[colIndex], newCard];
     
@@ -194,11 +208,12 @@ export const useGameLogic = () => {
     soundManager.playDrop();
     soundManager.vibrate(VIBRATION_PATTERNS.DROP);
 
-    // Allow drop animation to play visibly
-    await new Promise(r => setTimeout(r, 300));
-
+    setNextCardValue(secondNextCardValue);
     const nextVal = generateNextValue(maxValReached, score);
-    setNextCardValue(nextVal);
+    setSecondNextCardValue(nextVal);
+
+    // Allow drop animation to play visibly
+    await new Promise(r => setTimeout(r, 450));
 
     await processGravityAndMerges(tempGrid, colIndex);
     
@@ -206,6 +221,7 @@ export const useGameLogic = () => {
         if (prevGrid.every(c => c.length >= MAX_ROWS)) {
             setIsGameOver(true);
             soundManager.playGameOver();
+            soundManager.fadeOutMusic(2);
             soundManager.vibrate(VIBRATION_PATTERNS.GAME_OVER);
         }
         return prevGrid;
@@ -214,7 +230,7 @@ export const useGameLogic = () => {
     isProcessingRef.current = false;
   }, [grid, isGameOver, isGameStarted, nextCardValue, maxValReached, processGravityAndMerges]);
 
-  const moveCard = useCallback(async (fromCol: number, toCol: number) => {
+  const moveCard = useCallback(async (fromCol: number, toCol: number, dropFromY?: number) => {
     if (isGameOver || isProcessingRef.current || !isGameStarted) return;
     if (fromCol === toCol) return; 
 
@@ -234,8 +250,9 @@ export const useGameLogic = () => {
         return;
     }
 
+    const updatedCardToMove = { ...cardToMove, dropFromY };
     tempGrid[fromCol] = sourceColCards;
-    tempGrid[toCol] = [...tempGrid[toCol], cardToMove]; 
+    tempGrid[toCol] = [...tempGrid[toCol], updatedCardToMove]; 
 
     setGrid(tempGrid);
     setLastActionId(generateId());
@@ -243,7 +260,7 @@ export const useGameLogic = () => {
     soundManager.vibrate(VIBRATION_PATTERNS.DROP);
 
     // Allow drop animation to play visibly
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 450));
 
     await processGravityAndMerges(tempGrid, toCol);
     
@@ -251,6 +268,7 @@ export const useGameLogic = () => {
         if (prevGrid.every(c => c.length >= MAX_ROWS)) {
             setIsGameOver(true);
             soundManager.playGameOver();
+            soundManager.fadeOutMusic(2);
             soundManager.vibrate(VIBRATION_PATTERNS.GAME_OVER);
         }
         return prevGrid;
@@ -274,10 +292,12 @@ export const useGameLogic = () => {
     score,
     highScore,
     nextCardValue,
+    secondNextCardValue,
     isGameOver,
     isGameStarted,
     comboEvent,
     lastActionId,
+    maxValReached,
     startGame,
     pauseGame,
     dropCard,

@@ -5,6 +5,7 @@ export interface CardData {
   isMerging?: boolean;
   comboLevel?: number;
   isNew?: boolean;
+  dropFromY?: number;
 }
 
 export type Grid = CardData[][];
@@ -14,6 +15,7 @@ export interface GameState {
   score: number;
   highScore: number;
   nextCardValue: number;
+  secondNextCardValue?: number;
   isGameOver: boolean;
   isGameStarted: boolean; // New state for Start Menu
   maxValReached: number;
@@ -26,6 +28,8 @@ export interface SoundManager {
   playClick: () => void;
   playPop: () => void;
   toggleMusic: (shouldPlay: boolean) => void;
+  fadeOutMusic: (duration: number) => void;
+  setOnBeatCallback: (cb: ((beat: number, phase: number) => void) | null) => void;
   toggleVibration: (enabled: boolean) => void;
   isVibrationEnabled: () => boolean;
   vibrate: (pattern?: number | number[]) => void;

@@ -24,9 +24,12 @@ const App: React.FC = () => {
     score, 
     highScore, 
     nextCardValue, 
+    secondNextCardValue,
     isGameOver, 
     isGameStarted,
     comboEvent,
+    lastActionId,
+    maxValReached,
     dropCard, 
     moveCard,
     resetGame, 
@@ -35,11 +38,16 @@ const App: React.FC = () => {
   } = useGameLogic();
 
   const [dragX, setDragX] = useState<number | null>(null);
+  const [dragY, setDragY] = useState<number | null>(null);
+  const [startDragPos, setStartDragPos] = useState<{x: number, y: number} | null>(null);
+  const [hasMoved, setHasMoved] = useState(false);
   const [activeColIndex, setActiveColIndex] = useState<number | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [isMusicOn, setIsMusicOn] = useState(false);
+  const [isMusicOn, setIsMusicOn] = useState(true);
   const [isNewRecord, setIsNewRecord] = useState(false);
+  const [beat, setBeat] = useState({ count: 0, phase: 0 });
+  const [isShaking, setIsShaking] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -56,8 +64,15 @@ const App: React.FC = () => {
 
   // Initialize Sound Context on mount (user interaction required for play)
   useEffect(() => {
+    soundManager.setOnBeatCallback((count, phase) => {
+        setBeat({ count, phase });
+    });
+
     const handleInteraction = () => {
         soundManager.init();
+        if (isMusicOn) {
+            soundManager.toggleMusic(true);
+        }
         window.removeEventListener('click', handleInteraction);
         window.removeEventListener('touchstart', handleInteraction);
     };
@@ -67,7 +82,7 @@ const App: React.FC = () => {
         window.removeEventListener('click', handleInteraction);
         window.removeEventListener('touchstart', handleInteraction);
     };
-  }, []);
+  }, [isMusicOn]);
 
   const toggleMusic = () => {
     const newState = !isMusicOn;
@@ -85,46 +100,87 @@ const App: React.FC = () => {
     
     // Clamp index
     const clampedIndex = Math.max(0, Math.min(COLUMNS - 1, colIndex));
+    
+    if (clampedIndex !== activeColIndex && dragState) {
+        soundManager.vibrate(5);
+    }
+    
     setActiveColIndex(clampedIndex);
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (isGameOver || !isGameStarted) return;
     
-    // Start dragging new card (default action if background is clicked)
+    // Start dragging new card
     setDragState({ type: 'new', value: nextCardValue });
     setDragX(e.clientX);
+    setDragY(e.clientY);
+    setStartDragPos({ x: e.clientX, y: e.clientY });
+    setHasMoved(false);
     updateActiveColumn(e.clientX);
   };
 
-  const handleCardDragStart = (colIndex: number, cardValue: number, e: React.PointerEvent) => {
+  const handleCardDragStart = (colIndex: number, cardValue: number, e: React.PointerEvent, isTop: boolean) => {
     if (isGameOver || !isGameStarted) return;
     e.stopPropagation(); // Stop background handler
     
+    if (!isTop) {
+        soundManager.vibrate(20);
+        soundManager.playPop();
+        setIsShaking(true);
+        setTimeout(() => setIsShaking(false), 400);
+        return;
+    }
+    
     setDragState({ type: 'existing', value: cardValue, fromCol: colIndex });
     setDragX(e.clientX);
+    setDragY(e.clientY);
+    setStartDragPos({ x: e.clientX, y: e.clientY });
+    setHasMoved(false);
     updateActiveColumn(e.clientX);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!dragState || isGameOver) return;
+    
     setDragX(e.clientX);
+    setDragY(e.clientY);
     updateActiveColumn(e.clientX);
+
+    if (!hasMoved && startDragPos) {
+        const dist = Math.sqrt(Math.pow(e.clientX - startDragPos.x, 2) + Math.pow(e.clientY - startDragPos.y, 2));
+        if (dist > 15) {
+            setHasMoved(true);
+            soundManager.vibrate(5);
+        }
+    }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
     if (!dragState || isGameOver) return;
 
-    if (activeColIndex !== null) {
+    if (activeColIndex !== null && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      
+      // If it's a tap (hasn't moved much), we drop from the top slot
+      // If it's a drag (hasMoved is true), we drop from the current finger position
+      const relativeY = !hasMoved ? -100 : (dragY !== null ? dragY - rect.top : 0);
+      
       if (dragState.type === 'new') {
-        dropCard(activeColIndex);
+        dropCard(activeColIndex, relativeY);
       } else if (dragState.type === 'existing' && dragState.fromCol !== undefined) {
-        moveCard(dragState.fromCol, activeColIndex);
+        if (hasMoved) {
+            moveCard(dragState.fromCol, activeColIndex, relativeY);
+        }
+        // If it was just a tap on an existing card, we do nothing to avoid confusion
       }
     }
     
     setDragState(null);
     setDragX(null);
+    setDragY(null);
+    setStartDragPos(null);
+    setHasMoved(false);
     setActiveColIndex(null);
   };
 
@@ -151,7 +207,10 @@ const App: React.FC = () => {
 
   return (
     <motion.div 
-      animate={comboEvent ? { 
+      animate={isGameOver ? {
+        x: [0, -10, 10, -10, 10, 0],
+        transition: { duration: 0.4 }
+      } : comboEvent ? { 
         x: [0, -4 * Math.min(comboEvent.count, 4), 4 * Math.min(comboEvent.count, 4), 0],
         y: [0, 2 * Math.min(comboEvent.count, 4), -2 * Math.min(comboEvent.count, 4), 0],
         scale: comboEvent.count >= 3 ? [1, 1.01, 1] : 1
@@ -161,9 +220,14 @@ const App: React.FC = () => {
     >
       
       {/* Background Ambient Glow */}
-      <div className="absolute top-[-20%] left-[-20%] w-[140%] h-[60%] bg-blue-500/10 blur-[100px] rounded-full pointer-events-none" />
+      <div className="absolute top-[-20%] left-[-20%] w-[140%] h-[60%] bg-blue-500/10 blur-[60px] rounded-full pointer-events-none" />
 
-      <BackgroundEffects comboCount={comboEvent?.count || 0} grid={grid} />
+      <BackgroundEffects 
+        comboCount={comboEvent?.count || 0} 
+        grid={grid} 
+        beat={beat} 
+        maxValReached={maxValReached} 
+      />
 
       {/* Combo Flash Overlay */}
       <AnimatePresence>
@@ -180,7 +244,15 @@ const App: React.FC = () => {
       </AnimatePresence>
 
       {/* Start Menu */}
-      {!isGameStarted && <StartMenu onStart={startGame} highScore={highScore} />}
+      {!isGameStarted && (
+        <StartMenu 
+          onStart={startGame} 
+          highScore={highScore} 
+          isMusicOn={isMusicOn}
+          onToggleMusic={toggleMusic}
+          canContinue={score > 0 || grid.some(col => col.length > 0)}
+        />
+      )}
 
       {/* GAMEPLAY UI (Only visible when game is started) */}
       {isGameStarted && (
@@ -204,10 +276,17 @@ const App: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-2 bg-slate-900/50 px-3 py-1 rounded-full border border-slate-800">
+                  <motion.div 
+                    animate={score > highScore * 0.9 && score <= highScore && highScore > 0 ? {
+                        boxShadow: ["0 0 0px rgba(234,179,8,0)", "0 0 15px rgba(234,179,8,0.4)", "0 0 0px rgba(234,179,8,0)"],
+                        borderColor: ["rgba(30,41,59,0.5)", "rgba(234,179,8,0.5)", "rgba(30,41,59,0.5)"]
+                    } : {}}
+                    transition={{ repeat: Infinity, duration: 1.5 }}
+                    className="flex items-center gap-2 bg-slate-900/50 px-3 py-1 rounded-full border border-slate-800"
+                  >
                       <Trophy size={14} className="text-yellow-500" />
                       <span className="font-bold text-sm tracking-wide">{highScore}</span>
-                  </div>
+                  </motion.div>
                   
                   <div className="flex-1 flex justify-end gap-2">
                       {/* MUSIC TOGGLE */}
@@ -241,78 +320,29 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Big Central Score */}
-                <div className="flex flex-col items-center mt-6 relative">
-                <AnimatePresence>
-                    {isNewRecord && (
-                        <>
-                            {/* Confetti-like burst */}
-                            {Array.from({ length: 12 }).map((_, i) => (
-                                <motion.div
-                                    key={`confetti-${i}`}
-                                    initial={{ x: 0, y: 0, scale: 0 }}
-                                    animate={{ 
-                                        x: (Math.random() - 0.5) * 300, 
-                                        y: (Math.random() - 0.5) * 200 - 50,
-                                        scale: [0, 1, 0],
-                                        rotate: Math.random() * 360
-                                    }}
-                                    transition={{ duration: 1, ease: "easeOut" }}
-                                    className="absolute w-2 h-2 bg-yellow-400 rounded-sm z-0"
-                                />
-                            ))}
-                            
-                            <motion.div 
-                                initial={{ opacity: 0, scale: 0.5, y: 20 }}
-                                animate={{ 
-                                    opacity: 1, 
-                                    scale: [1, 1.1, 1], 
-                                    y: 0,
-                                    boxShadow: [
-                                        "0 0 20px rgba(234,179,8,0.5)",
-                                        "0 0 40px rgba(234,179,8,0.8)",
-                                        "0 0 20px rgba(234,179,8,0.5)"
-                                    ]
-                                }}
-                                transition={{ 
-                                    scale: { repeat: Infinity, duration: 2 },
-                                    boxShadow: { repeat: Infinity, duration: 2 }
-                                }}
-                                className="absolute -top-8 bg-yellow-500 text-slate-950 text-[10px] font-black px-4 py-1.5 rounded-full z-20"
-                            >
-                                NUOVO RECORD!
-                            </motion.div>
-                        </>
-                    )}
-                </AnimatePresence>
-
-                <div className="absolute -right-12 top-1/2 -translate-y-1/2 flex flex-col items-center opacity-40">
-                    <span className="text-[8px] font-bold tracking-widest uppercase text-slate-500">LV</span>
-                    <span className="text-xl font-black text-slate-400 leading-none">{Math.floor(score / 3000) + 1}</span>
-                </div>
-
+                <div className="flex flex-col items-center mt-2 sm:mt-6 relative">
                 <motion.h1 
                     key={score}
                     initial={{ scale: 1.1, y: -5 }}
                     animate={{ 
-                        scale: isNewRecord ? [1, 1.2, 1] : 1, 
+                        scale: isNewRecord ? [1, 1.1, 1] : 1, 
                         y: 0,
                         color: isNewRecord ? '#FACC15' : '#FFFFFF',
                         textShadow: isNewRecord 
                             ? '0 0 30px rgba(250, 204, 21, 0.6)' 
                             : '0 0 15px rgba(255,255,255,0.3)'
                     }}
-                    className="text-[5rem] font-black leading-none tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all duration-300"
+                    className="text-[4rem] sm:text-[5rem] font-black leading-none tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all duration-300"
                 >
                     {score}
                 </motion.h1>
-                <p className="text-blue-400/60 font-bold uppercase tracking-[0.3em] text-[0.6rem] mt-1">PUNTEGGIO</p>
+                <p className="text-blue-400/60 font-bold uppercase tracking-[0.3em] text-[0.5rem] sm:text-[0.6rem] mt-1">PUNTEGGIO</p>
                 </div>
             </div>
 
             {/* Main Game Area */}
             <main 
                 className="flex-1 relative flex flex-col justify-end pb-12"
-                onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerLeave={handlePointerUp}
@@ -322,15 +352,37 @@ const App: React.FC = () => {
 
                 {/* Next Card Indicator */}
                 <NextCard 
-                  value={dragState ? dragState.value : nextCardValue} 
-                  xPosition={dragX}
-                  isMoving={dragState?.type === 'existing'}
+                  value={dragState?.type === 'new' ? dragState.value : nextCardValue} 
+                  secondNextValue={secondNextCardValue}
+                  xPosition={dragState?.type === 'new' && hasMoved ? dragX : null}
+                  yPosition={dragState?.type === 'new' && hasMoved ? dragY : null}
+                  isMoving={false}
+                  isTouching={dragState?.type === 'new' && !hasMoved}
+                  onPointerDown={handlePointerDown}
                 />
+
+                {/* Floating Card for Existing Drag */}
+                {dragState?.type === 'existing' && hasMoved && (
+                    <div className="fixed inset-0 pointer-events-none z-[100]">
+                        <NextCard 
+                            value={dragState.value}
+                            xPosition={dragX}
+                            yPosition={dragY}
+                            isMoving={true}
+                            isTouching={false}
+                            showLabel={false}
+                        />
+                    </div>
+                )}
 
                 {/* Grid Container */}
                 <div className="px-6 w-full max-w-lg mx-auto h-[55vh]">
-                <div 
+                <motion.div 
                     ref={containerRef}
+                    animate={isShaking ? {
+                        x: [0, -10, 10, -10, 10, 0],
+                        transition: { duration: 0.4 }
+                    } : {}}
                     className="w-full h-full bg-slate-900/40 backdrop-blur-sm rounded-3xl border border-slate-800/50 flex shadow-2xl relative overflow-hidden"
                 >
                     {/* Grid Vertical Lines visual */}
@@ -348,10 +400,13 @@ const App: React.FC = () => {
                         cards={cards} 
                         isActive={activeColIndex === i}
                         onCardDragStart={handleCardDragStart}
-                        draggingFromThisCol={dragState?.type === 'existing' && dragState.fromCol === i}
+                        draggingFromThisCol={dragState?.type === 'existing' && dragState.fromCol === i && hasMoved}
+                        lastActionId={lastActionId}
+                        dragValue={dragState?.value}
+                        isDraggingActive={hasMoved}
                     />
                     ))}
-                </div>
+                </motion.div>
                 </div>
                 
                 {/* Instruction Hint */}

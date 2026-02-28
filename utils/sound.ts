@@ -2,6 +2,8 @@ import { SoundManager } from '../types';
 
 class WebAudioSoundManager implements SoundManager {
   private ctx: AudioContext | null = null;
+  private masterGain: GainNode | null = null;
+  private musicGain: GainNode | null = null;
   private masterVolume: number = 0.4;
   private musicVolume: number = 0.25; // Slightly louder for rhythm
   private vibrationEnabled: boolean = true;
@@ -12,12 +14,19 @@ class WebAudioSoundManager implements SoundManager {
   private timerID: number | null = null;
   private nextNoteTime: number = 0;
   private current16thNote: number = 0;
-  private tempo: number = 135; // BPM - Frenetic
+  private tempo: number = 140; // BPM - Fast
   private lookahead: number = 25.0; // ms
   private scheduleAheadTime: number = 0.1; // s
+  private progression: number = 0; // Increases over time
+  private onBeatCallback: ((beat: number, phase: number) => void) | null = null;
 
-  // Scale (C Minor)
+  // Scale (C Minor Pentatonic)
   private scale = [
+    130.81, // C3
+    155.56, // Eb3
+    174.61, // F3
+    196.00, // G3
+    233.08, // Bb3
     261.63, // C4
     311.13, // Eb4
     349.23, // F4
@@ -36,6 +45,15 @@ class WebAudioSoundManager implements SoundManager {
         const Ctx = window.AudioContext || (window as any).webkitAudioContext;
         if (Ctx) {
           this.ctx = new Ctx();
+          
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.value = this.masterVolume;
+          this.masterGain.connect(this.ctx.destination);
+
+          this.musicGain = this.ctx.createGain();
+          this.musicGain.gain.value = 1.0; // We control music volume via this.musicVolume and this gain node
+          this.musicGain.connect(this.masterGain);
+
           this.createNoiseBuffer();
         }
       } catch (e) {
@@ -53,6 +71,10 @@ class WebAudioSoundManager implements SoundManager {
       const ctx = this.getCtx();
       if (ctx) {
         if (ctx.state === 'suspended') ctx.resume();
+        if (this.musicGain) {
+            this.musicGain.gain.cancelScheduledValues(ctx.currentTime);
+            this.musicGain.gain.setValueAtTime(1.0, ctx.currentTime);
+        }
         this.nextNoteTime = ctx.currentTime + 0.1;
         this.current16thNote = 0;
         this.scheduler();
@@ -63,6 +85,23 @@ class WebAudioSoundManager implements SoundManager {
         this.timerID = null;
       }
     }
+  }
+
+  fadeOutMusic(duration: number) {
+    const ctx = this.getCtx();
+    if (!ctx || !this.musicGain) return;
+    
+    const t = ctx.currentTime;
+    this.musicGain.gain.cancelScheduledValues(t);
+    this.musicGain.gain.setValueAtTime(this.musicGain.gain.value, t);
+    this.musicGain.gain.linearRampToValueAtTime(0, t + duration);
+    
+    // Stop the scheduler after the fade
+    setTimeout(() => {
+        if (!this.musicGain || this.musicGain.gain.value <= 0.01) {
+            this.toggleMusic(false);
+        }
+    }, duration * 1000 + 100);
   }
 
   private createNoiseBuffer() {
@@ -99,66 +138,127 @@ class WebAudioSoundManager implements SoundManager {
     this.timerID = window.setTimeout(() => this.scheduler(), this.lookahead);
   }
 
+  setOnBeatCallback(cb: ((beat: number, phase: number) => void) | null) {
+    this.onBeatCallback = cb;
+  }
+
   private advanceNote() {
+    // Increase tempo slightly over time
+    if (this.tempo < 180) {
+      this.tempo += 0.01;
+    }
+
     const secondsPerBeat = 60.0 / this.tempo;
-    // We are scheduling 16th notes (4 notes per beat)
     this.nextNoteTime += 0.25 * secondsPerBeat; 
     this.current16thNote++;
+    
+    // Pattern progression
     if (this.current16thNote === 16) {
       this.current16thNote = 0;
+      this.progression++;
     }
   }
 
   private scheduleNote(beatNumber: number, time: number) {
     const ctx = this.ctx!;
+    const bar = Math.floor(this.progression / 4);
+    const phase = bar % 4; // 0, 1, 2, 3
+
+    // Notify UI of the beat
+    if (this.onBeatCallback && beatNumber % 4 === 0) {
+        // We use setTimeout to bring the callback back to the main thread 
+        // and approximate the timing (since Web Audio time is ahead)
+        const delay = (time - ctx.currentTime) * 1000;
+        setTimeout(() => {
+            if (this.onBeatCallback) this.onBeatCallback(beatNumber, phase);
+        }, Math.max(0, delay));
+    }
     
-    // 1. KICK (Four on the floor: 0, 4, 8, 12)
+    // 1. KICK (Four on the floor)
     if (beatNumber % 4 === 0) {
       this.playKickMusic(time);
     }
 
-    // 2. HI-HAT (Off-beats and 16ths for drive)
-    // Open hat on the "&" of the beat (2, 6, 10, 14)
-    if (beatNumber % 4 === 2) {
-       this.playHiHatMusic(time, 0.4); // Accent
-    } else if (beatNumber % 2 !== 0) {
-       this.playHiHatMusic(time, 0.1); // Ghost note
+    // 2. SNARE (on 4 and 12)
+    if (beatNumber === 4 || beatNumber === 12) {
+      if (phase >= 1) this.playSnareMusic(time);
     }
 
-    // 3. BASS (Driving 8th notes: 0, 2, 4...)
+    // 3. HI-HAT
     if (beatNumber % 2 === 0) {
-       // Root note (C2 = 65.41Hz)
-       this.playBassMusic(time, 65.41);
+       this.playHiHatMusic(time, beatNumber % 4 === 2 ? 0.3 : 0.1);
+    }
+    // Extra hats in later phases
+    if (phase >= 2 && beatNumber % 2 !== 0) {
+       this.playHiHatMusic(time, 0.05);
     }
 
-    // 4. ARPEGGIO (Random/Procedural pattern on 16ths)
-    // Simple pattern logic based on beat
-    const noteIdx = (beatNumber * 7) % this.scale.length; // Pseudo-random walk
-    const freq = this.scale[noteIdx];
-    // Don't play every single 16th to create groove space
-    if (beatNumber !== 0 && beatNumber !== 8) {
-        this.playArpMusic(time, freq);
+    // 4. BASS
+    const bassFreqs = [65.41, 77.78, 87.31, 98.00]; // C2, Eb2, F2, G2
+    const bassIdx = Math.floor(this.progression / 2) % bassFreqs.length;
+    if (beatNumber % 4 === 0 || (phase >= 2 && beatNumber % 4 === 2)) {
+       this.playBassMusic(time, bassFreqs[bassIdx]);
+    }
+
+    // 5. LEAD / ARPEGGIO
+    // Complexity increases with phase
+    let shouldPlayArp = false;
+    if (phase === 0) shouldPlayArp = beatNumber % 4 === 0;
+    if (phase === 1) shouldPlayArp = beatNumber % 2 === 0;
+    if (phase >= 2) shouldPlayArp = [0, 3, 6, 8, 11, 14].includes(beatNumber);
+    
+    if (shouldPlayArp) {
+        const scaleLen = this.scale.length;
+        // Evolving melody
+        const melodyBase = (this.progression * 3) % scaleLen;
+        const noteIdx = (melodyBase + (beatNumber % 5)) % scaleLen;
+        const freq = this.scale[noteIdx];
+        this.playArpMusic(time, freq, phase >= 3);
     }
   }
 
   // --- MUSIC INSTRUMENTS ---
+
+  private playSnareMusic(time: number) {
+    if (!this.noiseBuffer) return;
+    const ctx = this.ctx!;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuffer;
+    
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1500;
+    filter.Q.value = 0.5;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.3 * this.musicVolume * this.masterVolume, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.musicGain || ctx.destination);
+    
+    src.start(time);
+    src.stop(time + 0.1);
+  }
 
   private playKickMusic(time: number) {
     const ctx = this.ctx!;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
 
+    osc.type = 'triangle'; // Softer 8-bit kick
     osc.frequency.setValueAtTime(150, time);
-    osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
+    osc.frequency.exponentialRampToValueAtTime(40, time + 0.15);
     
-    gain.gain.setValueAtTime(1.0 * this.musicVolume * this.masterVolume, time);
-    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+    gain.gain.setValueAtTime(0.8 * this.musicVolume * this.masterVolume, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
 
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this.musicGain || ctx.destination);
     
     osc.start(time);
-    osc.stop(time + 0.5);
+    osc.stop(time + 0.2);
   }
 
   private playHiHatMusic(time: number, vol: number) {
@@ -170,61 +270,53 @@ class WebAudioSoundManager implements SoundManager {
     
     const filter = ctx.createBiquadFilter();
     filter.type = 'highpass';
-    filter.frequency.value = 8000;
+    filter.frequency.value = 10000;
 
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(vol * this.musicVolume * this.masterVolume, time);
-    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.03);
 
     src.connect(filter);
     filter.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this.musicGain || ctx.destination);
     
     src.start(time);
-    src.stop(time + 0.05);
+    src.stop(time + 0.03);
   }
 
   private playBassMusic(time: number, freq: number) {
     const ctx = this.ctx!;
     const osc = ctx.createOscillator();
-    osc.type = 'sawtooth';
+    osc.type = 'square'; // Classic NES bass
     osc.frequency.setValueAtTime(freq, time);
 
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(100, time);
-    filter.frequency.exponentialRampToValueAtTime(800, time + 0.1); // "Womp" attack
-    filter.frequency.exponentialRampToValueAtTime(100, time + 0.2);
-
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.6 * this.musicVolume * this.masterVolume, time);
-    gain.gain.linearRampToValueAtTime(0, time + 0.2);
+    gain.gain.setValueAtTime(0.25 * this.musicVolume * this.masterVolume, time);
+    gain.gain.linearRampToValueAtTime(0, time + 0.15);
 
-    osc.connect(filter);
-    filter.connect(gain);
-    gain.connect(ctx.destination);
+    osc.connect(gain);
+    gain.connect(this.musicGain || ctx.destination);
     
     osc.start(time);
-    osc.stop(time + 0.25);
+    osc.stop(time + 0.15);
   }
 
-  private playArpMusic(time: number, freq: number) {
+  private playArpMusic(time: number, freq: number, isDouble: boolean = false) {
     const ctx = this.ctx!;
     const osc = ctx.createOscillator();
-    osc.type = 'square';
+    osc.type = isDouble ? 'sawtooth' : 'square';
     osc.frequency.setValueAtTime(freq, time);
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.15 * this.musicVolume * this.masterVolume, time);
-    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+    gain.gain.setValueAtTime((isDouble ? 0.1 : 0.15) * this.musicVolume * this.masterVolume, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + (isDouble ? 0.08 : 0.12));
 
-    // Pan the arp slightly
     const panner = ctx.createStereoPanner();
-    panner.pan.value = Math.sin(time * 2); // Auto-pan
+    panner.pan.value = Math.sin(time * 3) * 0.5;
 
     osc.connect(gain);
     gain.connect(panner);
-    panner.connect(ctx.destination);
+    panner.connect(this.musicGain || ctx.destination);
     
     osc.start(time);
     osc.stop(time + 0.15);
@@ -252,7 +344,7 @@ class WebAudioSoundManager implements SoundManager {
 
     noiseSrc.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
-    noiseGain.connect(ctx.destination);
+    noiseGain.connect(this.masterGain || ctx.destination);
     noiseSrc.start(t);
     noiseSrc.stop(t + 0.1);
 
@@ -265,7 +357,7 @@ class WebAudioSoundManager implements SoundManager {
     oscGain.gain.setValueAtTime(0.6 * this.masterVolume, t);
     oscGain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
     osc.connect(oscGain);
-    oscGain.connect(ctx.destination);
+    oscGain.connect(this.masterGain || ctx.destination);
     osc.start(t);
     osc.stop(t + 0.15);
   }
@@ -286,7 +378,7 @@ class WebAudioSoundManager implements SoundManager {
       harmGain.gain.setValueAtTime(0.2 * this.masterVolume, t);
       harmGain.gain.linearRampToValueAtTime(0, t + 0.1);
       harmOsc.connect(harmGain);
-      harmGain.connect(ctx.destination);
+      harmGain.connect(this.masterGain || ctx.destination);
       harmOsc.start(t);
       harmOsc.stop(t + 0.1);
     }
@@ -304,7 +396,7 @@ class WebAudioSoundManager implements SoundManager {
     slideFilter.frequency.value = 1000;
     slideOsc.connect(slideFilter);
     slideFilter.connect(slideGain);
-    slideGain.connect(ctx.destination);
+    slideGain.connect(this.masterGain || ctx.destination);
     slideOsc.start(t);
     slideOsc.stop(t + 0.06);
 
@@ -321,7 +413,7 @@ class WebAudioSoundManager implements SoundManager {
     noiseGain.gain.exponentialRampToValueAtTime(0.01, lockTime + 0.05);
     noiseSrc.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
-    noiseGain.connect(ctx.destination);
+    noiseGain.connect(this.masterGain || ctx.destination);
     noiseSrc.start(lockTime);
     noiseSrc.stop(lockTime + 0.06);
 
@@ -338,7 +430,7 @@ class WebAudioSoundManager implements SoundManager {
     thudFilter.frequency.value = 300;
     thudOsc.connect(thudFilter);
     thudFilter.connect(thudGain);
-    thudGain.connect(ctx.destination);
+    thudGain.connect(this.masterGain || ctx.destination);
     thudOsc.start(lockTime);
     thudOsc.stop(lockTime + 0.15);
   }
@@ -365,7 +457,7 @@ class WebAudioSoundManager implements SoundManager {
 
     osc.connect(filter);
     filter.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this.masterGain || ctx.destination);
     osc.start(t);
     osc.stop(t + 1);
   }
@@ -386,7 +478,7 @@ class WebAudioSoundManager implements SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
     
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this.masterGain || ctx.destination);
     osc.start(t);
     osc.stop(t + 0.05);
   }
@@ -407,7 +499,7 @@ class WebAudioSoundManager implements SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.01, t + 0.08);
     
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this.masterGain || ctx.destination);
     osc.start(t);
     osc.stop(t + 0.08);
   }

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Block Drop: Infinite Merge</string>
+    <string name="title_activity_main">Block Drop: Infinite Merge</string>
+    <string name="package_name">com.kekko.blockdrop</string>
+    <string name="custom_url_scheme">com.kekko.blockdrop</string>
+</resources>

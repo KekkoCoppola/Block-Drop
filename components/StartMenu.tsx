@@ -7,9 +7,12 @@ import { soundManager } from '../utils/sound';
 interface StartMenuProps {
   onStart: () => void;
   highScore: number;
+  isMusicOn: boolean;
+  onToggleMusic: () => void;
+  canContinue?: boolean;
 }
 
-export const StartMenu: React.FC<StartMenuProps> = ({ onStart, highScore }) => {
+export const StartMenu: React.FC<StartMenuProps> = ({ onStart, highScore, isMusicOn, onToggleMusic, canContinue }) => {
   const [activeModal, setActiveModal] = useState<'none' | 'options' | 'credits'>('none');
   const [volume, setVolume] = useState(50);
   const [vibrationEnabled, setVibrationEnabled] = useState(soundManager.isVibrationEnabled());
@@ -30,14 +33,14 @@ export const StartMenu: React.FC<StartMenuProps> = ({ onStart, highScore }) => {
   };
 
   // Generate random floating blocks for background
-  const floatingBlocks = Array.from({ length: 15 }).map((_, i) => {
+  const floatingBlocks = Array.from({ length: 10 }).map((_, i) => {
     const colorKey = (i % 6) + 1;
     const style = CARD_COLORS[colorKey];
     return {
       id: i,
       left: `${Math.random() * 100}%`,
       delay: Math.random() * 5,
-      duration: 10 + Math.random() * 10,
+      duration: 12 + Math.random() * 12,
       bg: style.bg,
       shadow: style.shadow
     };
@@ -84,7 +87,7 @@ export const StartMenu: React.FC<StartMenuProps> = ({ onStart, highScore }) => {
                 {/* Visual Graphic: 3D Isometric Stack */}
                 <div className="relative w-32 h-32 mb-6">
                     {/* Glow behind */}
-                    <div className="absolute inset-0 bg-blue-500 blur-[50px] opacity-40 animate-pulse" />
+                    <div className="absolute inset-0 bg-blue-500 blur-[30px] opacity-30 animate-pulse" />
                     
                     {/* Bottom Block (Left) */}
                     <motion.div 
@@ -164,7 +167,9 @@ export const StartMenu: React.FC<StartMenuProps> = ({ onStart, highScore }) => {
                  <div className="bg-white/20 p-2 rounded-full shadow-inner">
                     <Play size={24} fill="white" className="text-white ml-1" />
                  </div>
-                 <span className="text-3xl font-black text-white tracking-widest uppercase italic transform -skew-x-6">GIOCA</span>
+                 <span className="text-3xl font-black text-white tracking-widest uppercase italic transform -skew-x-6">
+                    {canContinue ? "CONTINUA" : "GIOCA"}
+                 </span>
               </div>
             </button>
 
@@ -236,6 +241,30 @@ export const StartMenu: React.FC<StartMenuProps> = ({ onStart, highScore }) => {
                   onChange={handleVolumeChange}
                   className="w-full h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
+              </div>
+
+              <div className="mb-6">
+                <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-700/50">
+                  <div className="flex items-center gap-3 text-slate-300">
+                    <Volume2 size={20} className={isMusicOn ? "text-blue-400" : "text-slate-500"} />
+                    <div className="flex flex-col">
+                      <span className="font-bold text-sm">Musica 8-Bit</span>
+                      <span className="text-[10px] text-slate-500">Loop incalzante</span>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      soundManager.playClick();
+                      onToggleMusic();
+                    }}
+                    className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${isMusicOn ? 'bg-blue-600' : 'bg-slate-700'}`}
+                  >
+                    <motion.div 
+                      animate={{ x: isMusicOn ? 24 : 4 }}
+                      className="absolute top-1 left-0 w-4 h-4 bg-white rounded-full shadow-sm"
+                    />
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-700/50">

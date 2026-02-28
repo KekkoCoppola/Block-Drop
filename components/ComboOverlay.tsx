@@ -26,6 +26,7 @@ export const ComboOverlay: React.FC<ComboOverlayProps> = ({ comboEvent }) => {
               ease: "easeOut" 
             }}
             className="flex flex-col items-center"
+            style={{ willChange: 'transform, opacity' }}
           >
             <h1 
               className="text-6xl font-black text-white italic tracking-tighter drop-shadow-[0_5px_5px_rgba(0,0,0,0.5)]"
