@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Star, Settings, X, Volume2, Github, Smartphone } from 'lucide-react';
+import { Play, Star, Settings, X, Volume2, Github, Smartphone, RotateCcw } from 'lucide-react';
 import { CARD_COLORS, VIBRATION_PATTERNS } from '../constants';
 import { soundManager } from '../utils/sound';
 
 interface StartMenuProps {
   onStart: () => void;
+  onReset?: () => void;
   highScore: number;
   isMusicOn: boolean;
   onToggleMusic: () => void;
   canContinue?: boolean;
 }
 
-export const StartMenu: React.FC<StartMenuProps> = ({ onStart, highScore, isMusicOn, onToggleMusic, canContinue }) => {
+export const StartMenu: React.FC<StartMenuProps> = ({ onStart, onReset, highScore, isMusicOn, onToggleMusic, canContinue }) => {
   const [activeModal, setActiveModal] = useState<'none' | 'options' | 'credits'>('none');
   const [volume, setVolume] = useState(50);
   const [vibrationEnabled, setVibrationEnabled] = useState(soundManager.isVibrationEnabled());
@@ -177,7 +178,7 @@ export const StartMenu: React.FC<StartMenuProps> = ({ onStart, highScore, isMusi
                 soundManager.vibrate(VIBRATION_PATTERNS.DROP);
                 onStart();
               }}
-              className="w-full group relative h-16 sm:h-20 bg-gradient-to-b from-[#FFEA00] to-[#FF9100] hover:from-[#FFD600] hover:to-[#FF6D00] rounded-2xl shadow-[0_6px_0_#00529B,0_15px_20px_rgba(0,0,0,0.4)] active:shadow-[0_0_0_#00529B] active:translate-y-[6px] transition-all mb-4 sm:mb-6 overflow-hidden border-2 border-[#FFF59D]"
+              className="w-full group relative h-16 sm:h-20 bg-gradient-to-b from-[#FFEA00] to-[#FF9100] hover:from-[#FFD600] hover:to-[#FF6D00] rounded-2xl shadow-[0_6px_0_#00529B,0_15px_20px_rgba(0,0,0,0.4)] active:shadow-[0_0_0_#00529B] active:translate-y-[6px] transition-all mb-4 overflow-hidden border-2 border-[#FFF59D]"
             >
               <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="absolute top-0 right-0 p-4 opacity-20">
@@ -192,6 +193,20 @@ export const StartMenu: React.FC<StartMenuProps> = ({ onStart, highScore, isMusi
                  </span>
               </div>
             </button>
+
+            {canContinue && onReset && (
+              <button
+                onClick={() => {
+                  soundManager.vibrate(10);
+                  soundManager.playClick();
+                  onReset();
+                }}
+                className="w-full h-12 sm:h-14 bg-[#1A233A] hover:bg-[#2A3B5C] rounded-2xl shadow-[0_4px_0_#0B0F19] active:shadow-none active:translate-y-[4px] transition-all mb-6 border border-[#2A3B5C] flex items-center justify-center gap-3"
+              >
+                <RotateCcw size={18} className="text-slate-400" />
+                <span className="text-sm sm:text-base font-bold text-slate-300 uppercase tracking-wider">Nuova Partita</span>
+              </button>
+            )}
 
             {/* Secondary Buttons Row */}
             <div className="flex gap-3 w-full">

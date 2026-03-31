@@ -214,8 +214,9 @@ const App: React.FC = () => {
   }, []);
 
   const handleRestartClick = () => {
-    // If game has practically not started (score 0), just reset immediately
-    if (score === 0 && !isGameOver) {
+    // If game has practically not started (grid empty), just reset immediately
+    const isGridEmpty = grid.every(col => col.length === 0);
+    if (isGridEmpty && !isGameOver) {
       resetGame();
     } else {
       setShowResetConfirm(true);
@@ -269,6 +270,7 @@ const App: React.FC = () => {
       {!isGameStarted && (
         <StartMenu 
           onStart={startGame} 
+          onReset={() => setShowResetConfirm(true)}
           highScore={highScore} 
           isMusicOn={isMusicOn}
           onToggleMusic={toggleMusic}
