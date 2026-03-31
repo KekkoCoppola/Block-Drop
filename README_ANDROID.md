@@ -25,9 +25,10 @@ Questo progetto è stato configurato con **Capacitor** per essere eseguito come 
    ```
    *Oppure apri Android Studio e seleziona la cartella `android` del progetto.*
 
-4. **Genera l'APK in Android Studio**:
-   - Vai su `Build` > `Build Bundle(s) / APK(s)` > `Build APK(s)`.
-   - Una volta completato, apparirà una notifica con il link alla cartella contenente l'APK.
+4. **Genera l'APK o l'.AAB in Android Studio**:
+   - Per testare sul telefono: `Build` > `Build Bundle(s) / APK(s)` > `Build APK(s)`.
+   - Per il Google Play Store: `Build` > `Generate Signed Bundle / APK...`.
+   - Seleziona `Android App Bundle (.aab)`, crea o usa il tuo keystore e segui i passaggi per la firma.
 
 ## Personalizzazione Icona e Splash Screen
 

@@ -16,14 +16,14 @@ interface MergeParticlesProps {
   count?: number;
 }
 
-export const MergeParticles: React.FC<MergeParticlesProps> = ({ color, count = 8 }) => {
+export const MergeParticles: React.FC<MergeParticlesProps> = ({ color, count = 4 }) => {
   const particles = useMemo(() => {
     return Array.from({ length: count }).map((_, i) => ({
       id: i,
       angle: (Math.PI * 2 * i) / count + (Math.random() * 0.4 - 0.2),
-      distance: 50 + Math.random() * 60,
-      size: 3 + Math.random() * 6,
-      duration: 0.4 + Math.random() * 0.3,
+      distance: 40 + Math.random() * 40,
+      size: 3 + Math.random() * 4,
+      duration: 0.3 + Math.random() * 0.2,
       isSquare: Math.random() > 0.5,
     }));
   }, [count]);
@@ -39,7 +39,7 @@ export const MergeParticles: React.FC<MergeParticlesProps> = ({ color, count = 8
             y: Math.sin(p.angle) * p.distance,
             scale: 0,
             opacity: 0,
-            rotate: p.isSquare ? 120 : 0,
+            rotate: p.isSquare ? 90 : 0,
           }}
           transition={{
             duration: p.duration,
@@ -50,7 +50,6 @@ export const MergeParticles: React.FC<MergeParticlesProps> = ({ color, count = 8
             width: p.size,
             height: p.size,
             backgroundColor: color,
-            boxShadow: `0 0 8px ${color}`,
             willChange: 'transform, opacity',
           }}
         />

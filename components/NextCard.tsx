@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { getCardStyle } from '../constants';
-import { Move } from 'lucide-react';
+import { ArrowDown, Move, Check } from 'lucide-react';
 import { CardBody } from './CardBody';
 
 interface NextCardProps {
@@ -30,13 +30,13 @@ export const NextCard: React.FC<NextCardProps> = ({ value, secondNextValue, xPos
 
   return (
     <div 
-      className={`relative flex justify-center items-center h-32 sm:h-36 mb-1 sm:mb-2 z-50 ${isIdle ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'}`}
+      className={`relative flex justify-center items-center h-16 sm:h-36 mb-1 sm:mb-2 z-50 ${isIdle ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'}`}
       onPointerDown={isIdle ? onPointerDown : undefined}
     >
       {/* Drop Zone Visual Hint (Subtle dashed area) */}
       {isIdle && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-24 h-28 border-2 border-dashed border-white/5 rounded-3xl" />
+          <div className="w-14 h-16 sm:w-24 sm:h-28 border-2 border-dashed border-white/5 rounded-3xl" />
         </div>
       )}
       
@@ -49,7 +49,7 @@ export const NextCard: React.FC<NextCardProps> = ({ value, secondNextValue, xPos
             opacity: 1, 
             y: isDragging ? -15 : isTouching ? -12 : [0, -8, 0], 
             rotate: (isDragging || isTouching) ? 0 : [-1, 1, -1],
-            x: isDragging ? xPosition! - (window.innerWidth / 2) : 0,
+            x: 0,
         }}
         transition={{ 
             y: (isDragging || isTouching) ? {
@@ -82,12 +82,12 @@ export const NextCard: React.FC<NextCardProps> = ({ value, secondNextValue, xPos
                 mass: 0.5
             }
         }}
-        className="w-20 h-24 flex items-center justify-center overflow-visible relative"
+        className="w-14 h-16 sm:w-20 sm:h-24 flex items-center justify-center overflow-visible relative"
         style={{
           position: isDragging ? 'fixed' : 'relative',
-          left: isDragging ? '50%' : 'auto',
+          left: isDragging ? xPosition! : 'auto',
           top: isDragging ? yPosition! - 60 : 'auto', // Offset to show card above finger
-          marginLeft: isDragging ? '-40px' : '0', // Half width
+          transform: isDragging ? 'translateX(-50%)' : 'none',
           zIndex: 100,
           willChange: 'transform, opacity, top, left',
         }}
@@ -95,9 +95,9 @@ export const NextCard: React.FC<NextCardProps> = ({ value, secondNextValue, xPos
         {/* Subtle Idle Glow */}
         {isIdle && (
             <motion.div 
-                animate={{ opacity: [0.2, 0.5, 0.2], scale: [1, 1.1, 1] }}
+                animate={{ opacity: [0.1, 0.3, 0.1], scale: [1, 1.1, 1] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute inset-[-10%] blur-xl rounded-2xl z-0"
+                className="absolute inset-[-10%] rounded-2xl z-0"
                 style={{ backgroundColor: style.accent }}
             />
         )}
@@ -112,9 +112,9 @@ export const NextCard: React.FC<NextCardProps> = ({ value, secondNextValue, xPos
         {/* Move Glow */}
         {isMoving && (
             <motion.div 
-                animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.15, 1] }}
+                animate={{ opacity: [0.2, 0.4, 0.2], scale: [1, 1.15, 1] }}
                 transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute inset-[-20%] blur-2xl rounded-2xl z-0 bg-yellow-400"
+                className="absolute inset-[-20%] rounded-2xl z-0 bg-yellow-400"
             />
         )}
 
@@ -122,7 +122,7 @@ export const NextCard: React.FC<NextCardProps> = ({ value, secondNextValue, xPos
             value={value} 
             styleOverride={{
                 ...moveStyle,
-                boxShadow: isIdle ? style.boxShadow : isMoving ? `0 0 30px 10px rgba(250, 204, 21, 0.6), ${style.boxShadow}` : `0 20px 25px -5px rgba(0, 0, 0, 0.5), ${style.boxShadow}`,
+                boxShadow: isIdle ? style.boxShadow : isMoving ? `0 0 15px 5px rgba(250, 204, 21, 0.6), ${style.boxShadow}` : `0 10px 15px -5px rgba(0, 0, 0, 0.5), ${style.boxShadow}`,
                 zIndex: 10
             }}
         />
@@ -143,28 +143,25 @@ export const NextCard: React.FC<NextCardProps> = ({ value, secondNextValue, xPos
          {/* Label attached to the moving card */}
          {isDragging && (
             <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`absolute top-[110%] text-white text-[10px] font-black tracking-widest uppercase px-3 py-1 rounded-full backdrop-blur-md shadow-xl border whitespace-nowrap ${isMoving ? 'bg-yellow-600/90 border-yellow-400/50' : 'bg-slate-900/80 border-white/10'}`}
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={`absolute top-[110%] text-white p-1.5 rounded-full shadow-xl border ${isMoving ? 'bg-yellow-600/90 border-yellow-400/50' : 'bg-blue-600/80 border-white/10'}`}
             >
-                {isMoving ? "SPOSTA" : "RILASCIA"}
+                {isMoving ? <Move size={12} /> : <Check size={12} />}
             </motion.div>
          )}
       </motion.div>
       
       {/* Idle Label */}
       {isIdle && showLabel && (
-        <div className="absolute -top-10 sm:-top-8 flex flex-col items-center gap-1">
-          <span className="text-slate-400 text-[10px] font-bold tracking-[0.2em] uppercase">
-            PROSSIMO
-          </span>
-          <motion.span 
-            animate={{ opacity: [0.3, 0.7, 0.3] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className="text-blue-400/60 text-[8px] font-black tracking-widest uppercase"
+        <div className="absolute -top-4 sm:-top-8 flex flex-col items-center">
+          <motion.div
+            animate={{ y: [0, 3, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="text-slate-600/30"
           >
-            TRASCINA PER GIOCARE
-          </motion.span>
+            <ArrowDown size={12} />
+          </motion.div>
         </div>
       )}
 
@@ -174,12 +171,12 @@ export const NextCard: React.FC<NextCardProps> = ({ value, secondNextValue, xPos
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 0.6, x: 0 }}
           key={`second-${secondNextValue}`}
-          className="absolute left-[calc(50%+60px)] w-12 h-14 flex items-center justify-center"
+          className="absolute left-[calc(50%+50px)] sm:left-[calc(50%+60px)] w-10 h-12 sm:w-12 sm:h-14 flex items-center justify-center"
         >
           <CardBody 
             value={secondNextValue} 
             styleOverride={{
-              scale: 0.6,
+              scale: 0.5,
               opacity: 0.8,
               boxShadow: secondStyle?.boxShadow,
             }}

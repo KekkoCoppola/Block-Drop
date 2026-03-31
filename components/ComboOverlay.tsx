@@ -15,10 +15,10 @@ export const ComboOverlay: React.FC<ComboOverlayProps> = ({ comboEvent }) => {
             key={comboEvent.id}
             initial={{ scale: 0.5, opacity: 0, rotate: -15, y: 50 }}
             animate={{ 
-              scale: [0.5, 1.4, 1.2, 1.2], 
+              scale: [0.5, 1.2, 1, 1], 
               opacity: [0, 1, 1, 0], 
-              rotate: [15, -5, 0, 0],
-              y: [50, -20, -150, -160]
+              rotate: [10, -5, 0, 0],
+              y: [20, 0, -40, -50]
             }}
             transition={{ 
               duration: 1.2, 
@@ -29,16 +29,16 @@ export const ComboOverlay: React.FC<ComboOverlayProps> = ({ comboEvent }) => {
             style={{ willChange: 'transform, opacity' }}
           >
             <h1 
-              className="text-6xl font-black text-white italic tracking-tighter drop-shadow-[0_5px_5px_rgba(0,0,0,0.5)]"
+              className="text-3xl sm:text-6xl font-black text-white italic tracking-tighter"
               style={{ 
                 WebkitTextStroke: '2px black',
-                textShadow: '0 0 20px rgba(255,255,255,0.8), 4px 4px 0px #000'
+                textShadow: '2px 2px 0px #000'
               }}
             >
               {comboEvent.text}
             </h1>
-            <span className="text-yellow-400 font-bold text-2xl mt-2 drop-shadow-md">
-                +{comboEvent.count} CHAIN
+            <span className="text-yellow-400 font-bold text-xl sm:text-2xl mt-1 sm:mt-2 drop-shadow-md">
+                x{comboEvent.count}
             </span>
           </motion.div>
         )}

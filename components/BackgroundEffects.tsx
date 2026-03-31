@@ -16,9 +16,9 @@ export const BackgroundEffects: React.FC<BackgroundEffectsProps> = ({ comboCount
     return grid.some(col => col.length >= MAX_ROWS - 1);
   }, [grid]);
 
-  // Static particles that just float around
+  // Static particles that just float around - Reduced count for performance
   const particles = useMemo(() => {
-    return Array.from({ length: 12 }).map((_, i) => ({
+    return Array.from({ length: 5 }).map((_, i) => ({
       id: i,
       size: Math.random() * 2 + 1,
       x: Math.random() * 100,
@@ -39,23 +39,23 @@ export const BackgroundEffects: React.FC<BackgroundEffectsProps> = ({ comboCount
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-      {/* Beat-Synced Pulsing Lights */}
+      {/* Beat-Synced Pulsing Lights - Removed blur for performance */}
       <motion.div
         key={`beat-${beat.count}`}
         initial={{ opacity: 0.1, scale: 0.95 }}
         animate={{ opacity: 0, scale: 1.05 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="absolute top-[-10%] left-[-10%] w-[120%] h-[40%] bg-blue-500/5 blur-[60px] rounded-full pointer-events-none"
+        className="absolute top-[-10%] left-[-10%] w-[120%] h-[40%] bg-blue-500/5 rounded-full pointer-events-none"
       />
       
-      {/* Side Glows that pulse on beat */}
+      {/* Side Glows that pulse on beat - Removed blur */}
       <motion.div
         animate={{
             opacity: [0.02, 0.06, 0.02],
             scale: beat.count % 4 === 0 ? [1, 1.02, 1] : 1
         }}
         transition={{ duration: 0.5 }}
-        className="absolute left-[-10%] top-1/4 w-40 h-1/2 bg-purple-500/10 blur-[50px] rounded-full"
+        className="absolute left-[-10%] top-1/4 w-40 h-1/2 bg-purple-500/10 rounded-full"
       />
       <motion.div
         animate={{
@@ -63,7 +63,7 @@ export const BackgroundEffects: React.FC<BackgroundEffectsProps> = ({ comboCount
             scale: beat.count % 4 === 0 ? [1, 1.02, 1] : 1
         }}
         transition={{ duration: 0.5 }}
-        className="absolute right-[-10%] top-1/3 w-40 h-1/2 bg-blue-500/10 blur-[50px] rounded-full"
+        className="absolute right-[-10%] top-1/3 w-40 h-1/2 bg-blue-500/10 rounded-full"
       />
 
       {/* Floating Dust Particles */}
@@ -82,16 +82,17 @@ export const BackgroundEffects: React.FC<BackgroundEffectsProps> = ({ comboCount
             ease: "linear",
             delay: p.delay,
           }}
-          className="absolute rounded-full blur-[1px]"
+          className="absolute rounded-full"
           style={{ 
             width: p.size, 
             height: p.size,
-            backgroundColor: p.color
+            backgroundColor: p.color,
+            willChange: 'transform, opacity'
           }}
         />
       ))}
 
-      {/* Reactive Ambient Glow - Pulses with combo */}
+      {/* Reactive Ambient Glow - Pulses with combo - Removed blur */}
       <motion.div
         animate={{
           scale: comboCount > 0 ? [1, 1.1, 1] : 1,
@@ -99,10 +100,10 @@ export const BackgroundEffects: React.FC<BackgroundEffectsProps> = ({ comboCount
           backgroundColor: themeColor,
         }}
         transition={{ duration: 0.5 }}
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full blur-[80px] rounded-full"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full rounded-full"
       />
 
-      {/* Shooting Star effect on high combo */}
+      {/* Shooting Star effect on high combo - Removed blur */}
       <AnimatePresence>
         {comboCount >= 2 && (
           <motion.div
@@ -110,7 +111,7 @@ export const BackgroundEffects: React.FC<BackgroundEffectsProps> = ({ comboCount
             animate={{ x: '110%', y: '40%', opacity: [0, 1, 0] }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8, ease: "easeInOut" }}
-            className="absolute h-[1px] w-32 bg-gradient-to-r from-transparent via-white/40 to-transparent rotate-[15deg] blur-[1px]"
+            className="absolute h-[1px] w-32 bg-gradient-to-r from-transparent via-white/40 to-transparent rotate-[15deg]"
           />
         )}
       </AnimatePresence>

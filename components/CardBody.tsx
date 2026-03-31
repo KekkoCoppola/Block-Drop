@@ -24,7 +24,7 @@ export const CardBody: React.FC<CardBodyProps> = memo(({
       className="relative w-full h-full flex items-center justify-center transition-all duration-200 overflow-hidden"
       style={{
         backgroundColor: style.backgroundColor,
-        boxShadow: isFull ? `0 0 20px 5px rgba(255, 60, 60, 0.8)` : style.boxShadow,
+        boxShadow: isFull ? `0 0 10px 2px rgba(255, 60, 60, 0.8)` : style.boxShadow,
         borderRadius: '16px',
         ...styleOverride
       }}

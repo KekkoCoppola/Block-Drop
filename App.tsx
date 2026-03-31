@@ -1,5 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { SplashScreen } from '@capacitor/splash-screen';
+import { Capacitor } from '@capacitor/core';
 import { useGameLogic } from './hooks/useGameLogic';
 import { Column } from './components/Column';
 import { NextCard } from './components/NextCard';
@@ -49,6 +52,25 @@ const App: React.FC = () => {
   const [beat, setBeat] = useState({ count: 0, phase: 0 });
   const [isShaking, setIsShaking] = useState(false);
   
+  // Native App Initialization
+  useEffect(() => {
+    const initNative = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          // Hide splash screen
+          await SplashScreen.hide();
+          
+          // Style status bar
+          await StatusBar.setStyle({ style: Style.Dark });
+          await StatusBar.setBackgroundColor({ color: '#0f172a' });
+        } catch (e) {
+          console.warn('Capacitor plugins not available', e);
+        }
+      }
+    };
+    initNative();
+  }, []);
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Track if we just broke the high score
@@ -216,11 +238,11 @@ const App: React.FC = () => {
         scale: comboEvent.count >= 3 ? [1, 1.01, 1] : 1
       } : {}}
       transition={{ duration: 0.15, ease: "linear" }}
-      className="fixed inset-0 bg-slate-950 text-white flex flex-col no-select overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]"
+      className="fixed inset-0 bg-[#111625] text-white flex flex-col no-select overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]"
     >
       
-      {/* Background Ambient Glow */}
-      <div className="absolute top-[-20%] left-[-20%] w-[140%] h-[60%] bg-blue-500/10 blur-[60px] rounded-full pointer-events-none" />
+      {/* Background Ambient Glow - Removed blur for performance */}
+      <div className="absolute top-[-20%] left-[-20%] w-[140%] h-[60%] bg-blue-500/5 rounded-full pointer-events-none" />
 
       <BackgroundEffects 
         comboCount={comboEvent?.count || 0} 
@@ -256,12 +278,12 @@ const App: React.FC = () => {
 
       {/* GAMEPLAY UI (Only visible when game is started) */}
       {isGameStarted && (
-        <>
+        <div className="flex flex-col h-full max-h-screen overflow-hidden safe-top safe-bottom">
             {/* Hero Score Section */}
-            <div className="relative pt-8 pb-2 flex flex-col items-center justify-center z-10">
+            <header className="relative pt-12 pb-4 flex flex-col items-center justify-center z-10 shrink-0">
                 
                 {/* Top Controls Row */}
-                <div className="absolute top-2 w-full px-6 flex items-center text-slate-400">
+                <div className="absolute top-4 w-full px-4 flex items-center text-slate-400">
                   <div className="flex-1 flex justify-start">
                     {/* HOME BUTTON */}
                     <button 
@@ -270,9 +292,9 @@ const App: React.FC = () => {
                             soundManager.playPop();
                             pauseGame();
                         }}
-                        className="p-2 rounded-full bg-slate-900/50 border border-slate-800 hover:bg-slate-800 transition-colors"
+                        className="p-1.5 rounded-full bg-slate-900/50 border border-slate-800 hover:bg-slate-800 transition-colors"
                     >
-                        <Home size={16} />
+                        <Home size={14} />
                     </button>
                   </div>
 
@@ -282,13 +304,13 @@ const App: React.FC = () => {
                         borderColor: ["rgba(30,41,59,0.5)", "rgba(234,179,8,0.5)", "rgba(30,41,59,0.5)"]
                     } : {}}
                     transition={{ repeat: Infinity, duration: 1.5 }}
-                    className="flex items-center gap-2 bg-slate-900/50 px-3 py-1 rounded-full border border-slate-800"
+                    className="flex items-center gap-1.5 bg-slate-900/50 px-2.5 py-0.5 rounded-full border border-slate-800"
                   >
-                      <Trophy size={14} className="text-yellow-500" />
-                      <span className="font-bold text-sm tracking-wide">{highScore}</span>
+                      <Trophy size={12} className="text-yellow-500" />
+                      <span className="font-bold text-xs tracking-wide">{highScore}</span>
                   </motion.div>
                   
-                  <div className="flex-1 flex justify-end gap-2">
+                  <div className="flex-1 flex justify-end gap-1.5">
                       {/* MUSIC TOGGLE */}
                       <button 
                           onClick={() => {
@@ -296,13 +318,13 @@ const App: React.FC = () => {
                               soundManager.playClick();
                               toggleMusic();
                           }}
-                          className={`p-2 rounded-full border transition-colors ${
+                          className={`p-1.5 rounded-full border transition-colors ${
                               isMusicOn 
                               ? 'bg-blue-600/20 border-blue-500/50 text-blue-400' 
                               : 'bg-slate-900/50 border-slate-800 hover:bg-slate-800'
                           }`}
                       >
-                          {isMusicOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                          {isMusicOn ? <Volume2 size={14} /> : <VolumeX size={14} />}
                       </button>
 
                       {/* RESTART */}
@@ -312,37 +334,34 @@ const App: React.FC = () => {
                               soundManager.playPop();
                               handleRestartClick();
                           }}
-                          className="p-2 rounded-full bg-slate-900/50 border border-slate-800 hover:bg-slate-800 transition-colors"
+                          className="p-1.5 rounded-full bg-slate-900/50 border border-slate-800 hover:bg-slate-800 transition-colors"
                       >
-                          <RotateCcw size={16} />
+                          <RotateCcw size={14} />
                       </button>
                   </div>
                 </div>
 
                 {/* Big Central Score */}
-                <div className="flex flex-col items-center mt-2 sm:mt-6 relative">
+                <div className="flex flex-col items-center mt-0 sm:mt-2 relative">
                 <motion.h1 
                     key={score}
                     initial={{ scale: 1.1, y: -5 }}
                     animate={{ 
                         scale: isNewRecord ? [1, 1.1, 1] : 1, 
                         y: 0,
-                        color: isNewRecord ? '#FACC15' : '#FFFFFF',
-                        textShadow: isNewRecord 
-                            ? '0 0 30px rgba(250, 204, 21, 0.6)' 
-                            : '0 0 15px rgba(255,255,255,0.3)'
+                        color: isNewRecord ? '#FACC15' : '#FFFFFF'
                     }}
-                    className="text-[4rem] sm:text-[5rem] font-black leading-none tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all duration-300"
+                    className="text-[3rem] sm:text-[5rem] font-black leading-none tracking-tighter transition-all duration-300"
                 >
                     {score}
                 </motion.h1>
-                <p className="text-blue-400/60 font-bold uppercase tracking-[0.3em] text-[0.5rem] sm:text-[0.6rem] mt-1">PUNTEGGIO</p>
                 </div>
-            </div>
+            </header>
 
             {/* Main Game Area */}
             <main 
-                className="flex-1 relative flex flex-col justify-end pb-12"
+                className="flex-1 relative flex flex-col justify-between pb-4 min-h-0"
+                onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerLeave={handlePointerUp}
@@ -358,7 +377,6 @@ const App: React.FC = () => {
                   yPosition={dragState?.type === 'new' && hasMoved ? dragY : null}
                   isMoving={false}
                   isTouching={dragState?.type === 'new' && !hasMoved}
-                  onPointerDown={handlePointerDown}
                 />
 
                 {/* Floating Card for Existing Drag */}
@@ -376,14 +394,14 @@ const App: React.FC = () => {
                 )}
 
                 {/* Grid Container */}
-                <div className="px-6 w-full max-w-lg mx-auto h-[55vh]">
+                <div className="px-6 w-full max-w-lg mx-auto flex-1 min-h-0 mb-4">
                 <motion.div 
                     ref={containerRef}
                     animate={isShaking ? {
                         x: [0, -10, 10, -10, 10, 0],
                         transition: { duration: 0.4 }
                     } : {}}
-                    className="w-full h-full bg-slate-900/40 backdrop-blur-sm rounded-3xl border border-slate-800/50 flex shadow-2xl relative overflow-hidden"
+                    className="w-full h-full bg-slate-900/60 rounded-3xl border border-slate-800/50 flex shadow-2xl relative overflow-hidden"
                 >
                     {/* Grid Vertical Lines visual */}
                     <div className="absolute inset-0 flex pointer-events-none">
@@ -409,14 +427,8 @@ const App: React.FC = () => {
                 </motion.div>
                 </div>
                 
-                {/* Instruction Hint */}
-                {isGameStarted && !dragState && grid.every(c => c.length === 0) && (
-                    <div className="absolute bottom-4 w-full text-center text-slate-600 text-[10px] uppercase font-bold tracking-widest animate-pulse pointer-events-none">
-                        TRASCINA PER GIOCARE
-                    </div>
-                )}
             </main>
-        </>
+        </div>
       )}
 
       {/* Game Over Overlay */}

@@ -1,4 +1,5 @@
 import { SoundManager } from '../types';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 class WebAudioSoundManager implements SoundManager {
   private ctx: AudioContext | null = null;
@@ -504,9 +505,28 @@ class WebAudioSoundManager implements SoundManager {
     osc.stop(t + 0.08);
   }
 
-  vibrate(pattern: number | number[] = 10) {
-    if (this.vibrationEnabled && typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate(pattern);
+  async vibrate(pattern: number | number[] = 10) {
+    if (!this.vibrationEnabled) return;
+
+    try {
+      // Use Capacitor Haptics if available
+      if (typeof pattern === 'number') {
+        if (pattern > 50) {
+          await Haptics.impact({ style: ImpactStyle.Heavy });
+        } else if (pattern > 20) {
+          await Haptics.impact({ style: ImpactStyle.Medium });
+        } else {
+          await Haptics.impact({ style: ImpactStyle.Light });
+        }
+      } else {
+        // For patterns, we just use a single impact for now as Capacitor doesn't support complex patterns directly in the same way
+        await Haptics.vibrate({ duration: pattern[0] || 10 });
+      }
+    } catch (e) {
+      // Fallback to navigator.vibrate
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(pattern);
+      }
     }
   }
 

@@ -146,8 +146,7 @@ export const Card: React.FC<CardProps> = memo(({ card, index, isTop, onDragStart
                     transition={{ duration: 0.5, ease: "easeOut" }}
                     className="absolute inset-0 rounded-xl z-20"
                     style={{ 
-                        backgroundColor: style.backgroundColor,
-                        boxShadow: `0 0 30px ${style.accent}`
+                        backgroundColor: style.backgroundColor
                     }}
                 />
                 
@@ -168,7 +167,7 @@ export const Card: React.FC<CardProps> = memo(({ card, index, isTop, onDragStart
                     initial={{ opacity: 0 }}
                     animate={{ opacity: [0, 0.6, 0] }}
                     transition={{ duration: 0.2 }}
-                    className="absolute inset-[-20%] bg-white z-40 rounded-xl blur-lg"
+                    className="absolute inset-[-20%] bg-white z-40 rounded-xl"
                 />
             </div>
             </>
