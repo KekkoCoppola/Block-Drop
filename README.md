@@ -11,7 +11,6 @@
 
 **The ultimate infinite puzzle experience. Merge, Grow, and Conquer the Grid.**
 
-[Provami Ora](https://ai.studio/apps/6d99b243-4ea9-4d4e-86f2-029728212be3) •
 [Guida Android](README_ANDROID.md) •
 [Segnala Bug](https://github.com/KekkoCoppola/Block-Drop/issues)
 
