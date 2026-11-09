@@ -1,7 +1,7 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { getCardStyle } from '../constants';
-import { ArrowDown, Move, Check } from 'lucide-react';
+import { Move } from 'lucide-react';
 import { CardBody } from './CardBody';
 
 interface NextCardProps {
@@ -9,7 +9,7 @@ interface NextCardProps {
   secondNextValue?: number;
   xPosition?: number | null;
   yPosition?: number | null;
-  isMoving?: boolean; 
+  isMoving?: boolean;
   isTouching?: boolean;
   showLabel?: boolean;
   onPointerDown?: (e: React.PointerEvent) => void;
@@ -17,170 +17,115 @@ interface NextCardProps {
 
 export const NextCard: React.FC<NextCardProps> = ({ value, secondNextValue, xPosition, yPosition, isMoving, isTouching, showLabel = true, onPointerDown }) => {
   const style = getCardStyle(value);
-  const secondStyle = secondNextValue ? getCardStyle(secondNextValue) : null;
   const isIdle = xPosition === undefined || xPosition === null;
   const isDragging = !isIdle;
+  const reduceMotion = useReducedMotion();
 
-  // If we are moving an existing card, we add extra visual flair
+  const lifted = isDragging || isTouching;
+
   const moveStyle = isMoving ? {
-    border: '2px dashed #FACC15', // Yellow-400
-    scale: 1.15,
-    opacity: 0.9,
+    border: '2px dashed #FFD60A',
+    opacity: 0.94,
   } : {};
 
   return (
-    <div 
-      className={`relative flex justify-center items-center h-16 sm:h-36 mb-1 sm:mb-2 z-50 ${isIdle ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'}`}
+    <div
+      className={`relative flex justify-center items-center h-20 sm:h-36 mb-1 sm:mb-2 z-50 ${isIdle ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'}`}
       onPointerDown={isIdle ? onPointerDown : undefined}
     >
-      {/* Drop Zone Visual Hint (Subtle dashed area) */}
+      {/* The socket the next block rests in, so the launch point reads as part
+          of the board rather than a card floating in space. */}
       {isIdle && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-14 h-16 sm:w-24 sm:h-28 border-2 border-dashed border-white/5 rounded-3xl" />
+        <div aria-hidden className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div
+            className="w-16 h-[72px] sm:w-24 sm:h-28 rounded-3xl"
+            style={{ border: '2px dashed rgba(255,255,255,0.07)' }}
+          />
         </div>
       )}
-      
-      {/* The actual card that moves */}
+
       <motion.div
         key={value}
-        initial={{ scale: 0.0, opacity: 0, y: 50, rotate: -20 }}
-        animate={{ 
-            scale: isDragging ? 1.15 : isTouching ? 1.1 : 1, 
-            opacity: 1, 
-            y: isDragging ? -15 : isTouching ? -12 : [0, -8, 0], 
-            rotate: (isDragging || isTouching) ? 0 : [-1, 1, -1],
-            x: 0,
+        initial={reduceMotion ? { opacity: 0 } : { scale: 0.5, opacity: 0, y: 28 }}
+        animate={{
+          scale: isDragging ? 1.14 : isTouching ? 1.09 : 1,
+          opacity: 1,
+          // One idle breath. Previously this floated, rotated and glowed at
+          // three different periods, which read as jitter rather than life.
+          y: lifted ? -14 : reduceMotion ? 0 : [0, -6, 0],
         }}
-        transition={{ 
-            y: (isDragging || isTouching) ? {
-                type: "spring", 
-                stiffness: 400, 
-                damping: 30 
-            } : {
-                duration: 4,
-                repeat: Infinity,
-                ease: "easeInOut"
-            },
-            rotate: (isDragging || isTouching) ? {
-                type: "spring", 
-                stiffness: 400, 
-                damping: 30 
-            } : {
-                duration: 5,
-                repeat: Infinity,
-                ease: "easeInOut"
-            },
-            scale: {
-                type: "spring", 
-                stiffness: 400, 
-                damping: 25
-            },
-            x: {
-                type: "spring", 
-                stiffness: 500, 
-                damping: 35,
-                mass: 0.5
-            }
+        transition={{
+          scale: { type: 'spring', stiffness: 420, damping: 26 },
+          opacity: { duration: 0.2 },
+          y: lifted
+            ? { type: 'spring', stiffness: 420, damping: 30 }
+            : { duration: 3.2, repeat: Infinity, ease: 'easeInOut' },
         }}
-        className="w-14 h-16 sm:w-20 sm:h-24 flex items-center justify-center overflow-visible relative"
+        className="w-16 h-[72px] sm:w-20 sm:h-24 flex items-center justify-center overflow-visible relative"
         style={{
           position: isDragging ? 'fixed' : 'relative',
           left: isDragging ? xPosition! : 'auto',
-          top: isDragging ? yPosition! - 60 : 'auto', // Offset to show card above finger
+          top: isDragging ? yPosition! - 60 : 'auto',
           transform: isDragging ? 'translateX(-50%)' : 'none',
           zIndex: 100,
-          willChange: 'transform, opacity, top, left',
+          willChange: 'transform, opacity',
         }}
       >
-        {/* Subtle Idle Glow */}
-        {isIdle && (
-            <motion.div 
-                animate={{ opacity: [0.1, 0.3, 0.1], scale: [1, 1.1, 1] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute inset-[-10%] rounded-2xl z-0"
-                style={{ backgroundColor: style.accent }}
-            />
-        )}
-        
-        {/* Visual feedback when user is touching but not dragging yet */}
-        {/* We can't easily detect "touching but not dragging" here without more props, 
-            but we can use the fact that xPosition is null but the component is rendered with a value.
-            Actually, the parent App.tsx handles the logic. 
-            If isIdle is true, it shows the idle animation.
-        */}
-        
-        {/* Move Glow */}
         {isMoving && (
-            <motion.div 
-                animate={{ opacity: [0.2, 0.4, 0.2], scale: [1, 1.15, 1] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute inset-[-20%] rounded-2xl z-0 bg-yellow-400"
-            />
+          <motion.div
+            aria-hidden
+            animate={reduceMotion ? { opacity: 0.3 } : { opacity: [0.2, 0.45, 0.2] }}
+            transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute inset-[-18%] rounded-2xl z-0"
+            style={{ backgroundColor: '#FFD60A' }}
+          />
         )}
 
-        <CardBody 
-            value={value} 
-            styleOverride={{
-                ...moveStyle,
-                boxShadow: isIdle ? style.boxShadow : isMoving ? `0 0 15px 5px rgba(250, 204, 21, 0.6), ${style.boxShadow}` : `0 10px 15px -5px rgba(0, 0, 0, 0.5), ${style.boxShadow}`,
-                zIndex: 10
-            }}
+        <CardBody
+          value={value}
+          styleOverride={{
+            ...moveStyle,
+            boxShadow: isMoving
+              ? `${style.boxShadow}, 0 0 18px 5px rgba(255, 214, 10, 0.55)`
+              : lifted
+                ? `${style.boxShadow}, 0 14px 22px -8px rgba(0,0,0,0.7)`
+                : style.boxShadow,
+            zIndex: 10,
+          }}
         />
 
-         {/* Moving Icon Overlay */}
-         {isMoving && (
-             <motion.div 
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="absolute inset-0 flex items-center justify-center bg-black/40 z-20 rounded-2xl"
-             >
-                 <div className="bg-yellow-400 p-2 rounded-full shadow-lg">
-                    <Move size={20} className="text-slate-900" />
-                 </div>
-             </motion.div>
-         )}
-
-         {/* Label attached to the moving card */}
-         {isDragging && (
-            <motion.div 
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className={`absolute top-[110%] text-white p-1.5 rounded-full shadow-xl border ${isMoving ? 'bg-yellow-600/90 border-yellow-400/50' : 'bg-blue-600/80 border-white/10'}`}
-            >
-                {isMoving ? <Move size={12} /> : <Check size={12} />}
-            </motion.div>
-         )}
-      </motion.div>
-      
-      {/* Idle Label */}
-      {isIdle && showLabel && (
-        <div className="absolute -top-4 sm:-top-8 flex flex-col items-center">
+        {isMoving && (
           <motion.div
-            animate={{ y: [0, 3, 0] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-            className="text-slate-600/30"
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.18 }}
+            className="absolute inset-0 flex items-center justify-center z-20 rounded-2xl"
+            style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}
           >
-            <ArrowDown size={12} />
+            <span className="p-2 rounded-full" style={{ backgroundColor: '#FFD60A' }}>
+              <Move size={18} style={{ color: '#0b0f19' }} aria-hidden />
+            </span>
           </motion.div>
-        </div>
-      )}
+        )}
+      </motion.div>
 
-      {/* Second Next Card (Preview of what's after next) */}
-      {isIdle && secondNextValue && (
+      {/* The block after next. Explicitly a queue: smaller, dimmer, set to the
+          side, so the player can plan one move ahead without it competing. */}
+      {isIdle && secondNextValue !== undefined && (
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 0.6, x: 0 }}
           key={`second-${secondNextValue}`}
-          className="absolute left-[calc(50%+50px)] sm:left-[calc(50%+60px)] w-10 h-12 sm:w-12 sm:h-14 flex items-center justify-center"
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 14, scale: 0.8 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          className="absolute left-[calc(50%+58px)] sm:left-[calc(50%+74px)] flex flex-col items-center gap-1.5"
+          style={{ opacity: 0.62 }}
         >
-          <CardBody 
-            value={secondNextValue} 
-            styleOverride={{
-              scale: 0.5,
-              opacity: 0.8,
-              boxShadow: secondStyle?.boxShadow,
-            }}
-          />
+          {showLabel && (
+            <span className="text-[8px] font-black uppercase tracking-[0.14em] text-ink-faint">Poi</span>
+          )}
+          <div className="w-9 h-10 sm:w-11 sm:h-12">
+            <CardBody value={secondNextValue} />
+          </div>
         </motion.div>
       )}
     </div>

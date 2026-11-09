@@ -74,7 +74,7 @@ Per rigenerare le icone e le schermate di avvio con un comando automatizzato:
 
 ## 🏗️ Configurazione Tecnica
 
-* **Namespace**: `block.drop.infinite.merge` (definito in `capacitor.config.ts`).
+* **Namespace**: `com.kekko.blockdrop` (definito in `capacitor.config.ts`).
 * **Permissions**: Haptics e Status Bar sono gestiti nativamente tramite i
   plugin `@capacitor/haptics` e `@capacitor/status-bar`.
 * **Safe Areas**: Il layout React risponde automaticamente alle

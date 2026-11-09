@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Grid } from '../types';
 import { MAX_ROWS } from '../constants';
 
@@ -10,127 +10,116 @@ interface BackgroundEffectsProps {
   maxValReached?: number;
 }
 
+/**
+ * The board's weather. It reports two things and nothing else: how far the run
+ * has progressed (the ambient hue warms as higher blocks appear) and how close
+ * it is to ending (danger rises from the floor). Everything here stays under
+ * the merge — the merge is the loud moment, and a background that also pulses
+ * six ways at once is what stopped it reading before.
+ */
 export const BackgroundEffects: React.FC<BackgroundEffectsProps> = ({ comboCount, grid, beat, maxValReached = 3 }) => {
-  // Check if any column is nearly full (MAX_ROWS - 1)
-  const isNearDanger = useMemo(() => {
-    return grid.some(col => col.length >= MAX_ROWS - 1);
+  const reduceMotion = useReducedMotion();
+
+  // How full the board is, 0..1 — a continuous signal rather than a binary flag,
+  // so pressure builds visibly instead of snapping on at the last moment.
+  const pressure = useMemo(() => {
+    const filled = grid.reduce((sum, col) => sum + col.length, 0);
+    return Math.min(1, filled / (grid.length * MAX_ROWS));
   }, [grid]);
 
-  // Static particles that just float around - Reduced count for performance
-  const particles = useMemo(() => {
-    return Array.from({ length: 5 }).map((_, i) => ({
-      id: i,
-      size: Math.random() * 2 + 1,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      duration: Math.random() * 20 + 20,
-      delay: Math.random() * -20,
-      color: i % 3 === 0 ? 'rgba(59, 130, 246, 0.2)' : i % 3 === 1 ? 'rgba(168, 85, 247, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-    }));
-  }, []);
+  const isNearDanger = useMemo(
+    () => grid.some(col => col.length >= MAX_ROWS - 1),
+    [grid]
+  );
 
-  // Color based on max value reached
-  const themeColor = useMemo(() => {
-    if (isNearDanger) return 'rgba(239, 68, 68, 0.15)';
-    if (maxValReached >= 10) return 'rgba(234, 179, 8, 0.1)'; // Gold
-    if (maxValReached >= 7) return 'rgba(168, 85, 247, 0.1)'; // Purple
-    return 'rgba(59, 130, 246, 0.1)'; // Blue
-  }, [maxValReached, isNearDanger]);
+  /* Progress reads as a warming ambient: blue early, violet mid-run, gold deep.
+     These are radial gradients that fade to transparent, not tinted shapes — a
+     flat colour inside a rounded box draws its own hard edge across the board,
+     which is exactly what it used to do. The three layers cross-fade on
+     opacity so the tier change is a temperature shift, not a swap. */
+  const tier = maxValReached >= 10 ? 2 : maxValReached >= 7 ? 1 : 0;
+
+  const washes = useMemo(
+    () => [
+      'radial-gradient(ellipse 70% 100% at 50% 0%, rgba(64,196,255,0.16) 0%, rgba(64,196,255,0.05) 45%, transparent 78%)',
+      'radial-gradient(ellipse 70% 100% at 50% 0%, rgba(168,85,247,0.18) 0%, rgba(168,85,247,0.06) 45%, transparent 78%)',
+      'radial-gradient(ellipse 70% 100% at 50% 0%, rgba(255,214,10,0.16) 0%, rgba(255,159,10,0.05) 45%, transparent 78%)',
+    ],
+    []
+  );
+
+  const comboTint = ['rgba(64,196,255,0.14)', 'rgba(168,85,247,0.16)', 'rgba(255,214,10,0.16)'][tier];
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-      {/* Beat-Synced Pulsing Lights - Removed blur for performance */}
-      <motion.div
-        key={`beat-${beat.count}`}
-        initial={{ opacity: 0.1, scale: 0.95 }}
-        animate={{ opacity: 0, scale: 1.05 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className="absolute top-[-10%] left-[-10%] w-[120%] h-[40%] bg-blue-500/5 rounded-full pointer-events-none"
-      />
-      
-      {/* Side Glows that pulse on beat - Removed blur */}
-      <motion.div
-        animate={{
-            opacity: [0.02, 0.06, 0.02],
-            scale: beat.count % 4 === 0 ? [1, 1.02, 1] : 1
+      {/* Static field. Free, and it gives the board somewhere to sit. */}
+      <div
+        className="absolute inset-0 opacity-[0.035]"
+        style={{
+          backgroundImage:
+            'linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)',
+          backgroundSize: '76px 76px',
         }}
-        transition={{ duration: 0.5 }}
-        className="absolute left-[-10%] top-1/4 w-40 h-1/2 bg-purple-500/10 rounded-full"
-      />
-      <motion.div
-        animate={{
-            opacity: [0.02, 0.06, 0.02],
-            scale: beat.count % 4 === 0 ? [1, 1.02, 1] : 1
-        }}
-        transition={{ duration: 0.5 }}
-        className="absolute right-[-10%] top-1/3 w-40 h-1/2 bg-blue-500/10 rounded-full"
       />
 
-      {/* Floating Dust Particles */}
-      {particles.map((p) => (
+      {/* Ambient wash, tied to how far the run has come. */}
+      {washes.map((image, i) => (
         <motion.div
-          key={p.id}
-          initial={{ x: `${p.x}%`, y: `${p.y}%`, opacity: 0.05 }}
-          animate={{
-            y: [`${p.y}%`, `${(p.y + 20) % 100}%`, `${p.y}%`],
-            x: [`${p.x}%`, `${(p.x + 10) % 100}%`, `${p.x}%`],
-            opacity: comboCount > 0 ? [0.1, 0.3, 0.1] : [0.05, 0.15, 0.05],
-          }}
-          transition={{
-            duration: p.duration,
-            repeat: Infinity,
-            ease: "linear",
-            delay: p.delay,
-          }}
-          className="absolute rounded-full"
-          style={{ 
-            width: p.size, 
-            height: p.size,
-            backgroundColor: p.color,
-            willChange: 'transform, opacity'
-          }}
+          key={i}
+          animate={{ opacity: tier === i ? 1 : 0 }}
+          transition={{ duration: 1.2, ease: 'easeInOut' }}
+          className="absolute inset-x-0 top-0 h-3/5"
+          style={{ backgroundImage: image }}
         />
       ))}
 
-      {/* Reactive Ambient Glow - Pulses with combo - Removed blur */}
+      {/* The music's downbeat, once per bar. This is the only ambient loop left,
+          and it exists because the soundtrack is generated live — the room
+          should breathe with it. */}
+      {!reduceMotion && (
+        <motion.div
+          key={`beat-${beat.count}`}
+          initial={{ opacity: 0.5, scale: 0.98 }}
+          animate={{ opacity: 0, scale: 1.02 }}
+          transition={{ duration: 0.7, ease: 'easeOut' }}
+          className="absolute inset-x-0 top-0 h-2/5 origin-top"
+          style={{
+            backgroundImage:
+              'radial-gradient(ellipse 60% 100% at 50% 0%, rgba(255,255,255,0.07) 0%, transparent 70%)',
+          }}
+        />
+      )}
+
+      {/* Combo heat: a brief lift under a chain, scaled by its length. */}
+      {!reduceMotion && comboCount > 0 && (
+        <motion.div
+          key={`combo-heat-${comboCount}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, Math.min(1, 0.32 * comboCount), 0] }}
+          transition={{ duration: 0.7, ease: 'easeOut' }}
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `radial-gradient(ellipse 80% 60% at 50% 55%, ${comboTint} 0%, transparent 72%)`,
+          }}
+        />
+      )}
+
+      {/* Pressure rising from the floor. Opacity tracks fullness continuously;
+          the breath only starts once a column is one block from the top. */}
       <motion.div
         animate={{
-          scale: comboCount > 0 ? [1, 1.1, 1] : 1,
-          opacity: comboCount > 0 ? [0.08, 0.2, 0.08] : 0.06,
-          backgroundColor: themeColor,
+          opacity: isNearDanger && !reduceMotion
+            ? [0.35 + pressure * 0.2, 0.6 + pressure * 0.2, 0.35 + pressure * 0.2]
+            : pressure * 0.5,
         }}
-        transition={{ duration: 0.5 }}
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full rounded-full"
-      />
-
-      {/* Shooting Star effect on high combo - Removed blur */}
-      <AnimatePresence>
-        {comboCount >= 2 && (
-          <motion.div
-            initial={{ x: '-10%', y: '20%', opacity: 0 }}
-            animate={{ x: '110%', y: '40%', opacity: [0, 1, 0] }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, ease: "easeInOut" }}
-            className="absolute h-[1px] w-32 bg-gradient-to-r from-transparent via-white/40 to-transparent rotate-[15deg]"
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Danger Vignette */}
-      <motion.div 
-        animate={{
-          opacity: isNearDanger ? [0.15, 0.3, 0.15] : 0
-        }}
-        transition={{ duration: 1.5, repeat: Infinity }}
-        className="absolute inset-0 bg-gradient-to-t from-red-500/20 via-transparent to-transparent"
-      />
-
-      {/* Subtle Grid Lines */}
-      <div 
-        className="absolute inset-0 opacity-[0.03]"
+        transition={
+          isNearDanger && !reduceMotion
+            ? { duration: 1.9, repeat: Infinity, ease: 'easeInOut' }
+            : { duration: 0.8, ease: 'easeOut' }
+        }
+        className="absolute inset-x-0 bottom-0 h-2/5"
         style={{
-          backgroundImage: `linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)`,
-          backgroundSize: '80px 80px'
+          background: 'linear-gradient(0deg, rgba(255,69,58,0.30) 0%, transparent 100%)',
         }}
       />
     </div>

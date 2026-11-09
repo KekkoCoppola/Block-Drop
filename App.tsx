@@ -32,6 +32,7 @@ const App: React.FC = () => {
     isGameStarted,
     comboEvent,
     lastActionId,
+    lastActionCol,
     maxValReached,
     dropCard, 
     moveCard,
@@ -62,7 +63,7 @@ const App: React.FC = () => {
           
           // Style status bar
           await StatusBar.setStyle({ style: Style.Dark });
-          await StatusBar.setBackgroundColor({ color: '#0f172a' });
+          await StatusBar.setBackgroundColor({ color: '#111625' });
         } catch (e) {
           console.warn('Capacitor plugins not available', e);
         }
@@ -228,6 +229,10 @@ const App: React.FC = () => {
     resetGame();
   };
 
+  // Closing in on the record, but not past it yet — the one moment the record
+  // chip is worth drawing the eye to.
+  const isNearRecord = highScore > 0 && score > highScore * 0.9 && score <= highScore;
+
   return (
     <motion.div 
       animate={isGameOver ? {
@@ -242,10 +247,7 @@ const App: React.FC = () => {
       className="fixed inset-0 bg-[#111625] text-white flex flex-col no-select overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]"
     >
       
-      {/* Background Ambient Glow - Removed blur for performance */}
-      <div className="absolute top-[-20%] left-[-20%] w-[140%] h-[60%] bg-blue-500/5 rounded-full pointer-events-none" />
-
-      <BackgroundEffects 
+      <BackgroundEffects
         comboCount={comboEvent?.count || 0} 
         grid={grid} 
         beat={beat} 
@@ -257,11 +259,14 @@ const App: React.FC = () => {
         {comboEvent && comboEvent.count >= 3 && (
             <motion.div 
                 key={`flash-${comboEvent.id}`}
-                initial={{ opacity: 0.3 }}
+                initial={{ opacity: 0.26 }}
                 animate={{ opacity: 0 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="absolute inset-0 bg-white z-[5] pointer-events-none"
+                transition={{ duration: 0.34, ease: 'easeOut' }}
+                className="absolute inset-0 z-[5] pointer-events-none"
+                /* Warm rather than white: a chain should feel like heat, and a
+                   full-screen white flash on a dark board is punishing. */
+                style={{ backgroundColor: comboEvent.count >= 5 ? '#FF9F0A' : '#FFD60A' }}
             />
         )}
       </AnimatePresence>
@@ -284,79 +289,97 @@ const App: React.FC = () => {
             {/* Hero Score Section */}
             <header className="relative pt-12 pb-4 flex flex-col items-center justify-center z-10 shrink-0">
                 
-                {/* Top Controls Row */}
-                <div className="absolute top-4 w-full px-4 flex items-center text-slate-400">
+                {/* Top Controls Row. Icon buttons are 44px hit areas with the
+                    glyph optically centred inside; anything smaller fails on
+                    touch and the game is touch-first. */}
+                <div className="absolute top-2 w-full px-3 flex items-center gap-2 text-ink-muted">
                   <div className="flex-1 flex justify-start">
-                    {/* HOME BUTTON */}
-                    <button 
+                    <button
+                        type="button"
+                        aria-label="Torna al menu"
                         onClick={() => {
                             soundManager.vibrate(10);
                             soundManager.playPop();
                             pauseGame();
                         }}
-                        className="p-1.5 rounded-full bg-slate-900/50 border border-slate-800 hover:bg-slate-800 transition-colors"
+                        className="w-11 h-11 grid place-items-center rounded-full bg-deep/70 border border-raised/60 hover:bg-surface hover:text-ink active:scale-95 transition-all"
                     >
-                        <Home size={14} />
+                        <Home size={17} aria-hidden />
                     </button>
                   </div>
 
-                  <motion.div 
-                    animate={score > highScore * 0.9 && score <= highScore && highScore > 0 ? {
-                        boxShadow: ["0 0 0px rgba(234,179,8,0)", "0 0 15px rgba(234,179,8,0.4)", "0 0 0px rgba(234,179,8,0)"],
-                        borderColor: ["rgba(30,41,59,0.5)", "rgba(234,179,8,0.5)", "rgba(30,41,59,0.5)"]
+                  <motion.div
+                    animate={isNearRecord ? {
+                        boxShadow: ["0 0 0 0 rgba(255,214,10,0)", "0 0 14px 0 rgba(255,214,10,0.35)", "0 0 0 0 rgba(255,214,10,0)"],
+                        borderColor: ["rgba(42,59,92,0.6)", "rgba(255,214,10,0.55)", "rgba(42,59,92,0.6)"]
                     } : {}}
-                    transition={{ repeat: Infinity, duration: 1.5 }}
-                    className="flex items-center gap-1.5 bg-slate-900/50 px-2.5 py-0.5 rounded-full border border-slate-800"
+                    transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
+                    className="flex items-center gap-1.5 bg-deep/70 px-3 h-8 rounded-full border border-raised/60"
                   >
-                      <Trophy size={12} className="text-yellow-500" />
-                      <span className="font-bold text-xs tracking-wide">{highScore}</span>
+                      <Trophy size={13} className="text-gold" aria-hidden />
+                      <span className="sr-only">Record</span>
+                      <span className="tnum font-bold text-[13px] tracking-wide text-ink">{highScore}</span>
                   </motion.div>
-                  
+
                   <div className="flex-1 flex justify-end gap-1.5">
-                      {/* MUSIC TOGGLE */}
-                      <button 
+                      <button
+                          type="button"
+                          aria-label={isMusicOn ? 'Disattiva musica' : 'Attiva musica'}
+                          aria-pressed={isMusicOn}
                           onClick={() => {
                               soundManager.vibrate(10);
                               soundManager.playClick();
                               toggleMusic();
                           }}
-                          className={`p-1.5 rounded-full border transition-colors ${
-                              isMusicOn 
-                              ? 'bg-blue-600/20 border-blue-500/50 text-blue-400' 
-                              : 'bg-slate-900/50 border-slate-800 hover:bg-slate-800'
+                          className={`w-11 h-11 grid place-items-center rounded-full border active:scale-95 transition-all ${
+                              isMusicOn
+                              ? 'bg-brand/15 border-brand/50 text-brand'
+                              : 'bg-deep/70 border-raised/60 hover:bg-surface hover:text-ink'
                           }`}
                       >
-                          {isMusicOn ? <Volume2 size={14} /> : <VolumeX size={14} />}
+                          {isMusicOn ? <Volume2 size={17} aria-hidden /> : <VolumeX size={17} aria-hidden />}
                       </button>
 
-                      {/* RESTART */}
-                      <button 
+                      <button
+                          type="button"
+                          aria-label="Ricomincia la partita"
                           onClick={() => {
                               soundManager.vibrate(10);
                               soundManager.playPop();
                               handleRestartClick();
                           }}
-                          className="p-1.5 rounded-full bg-slate-900/50 border border-slate-800 hover:bg-slate-800 transition-colors"
+                          className="w-11 h-11 grid place-items-center rounded-full bg-deep/70 border border-raised/60 hover:bg-surface hover:text-ink active:scale-95 transition-all"
                       >
-                          <RotateCcw size={14} />
+                          <RotateCcw size={17} aria-hidden />
                       </button>
                   </div>
                 </div>
 
-                {/* Big Central Score */}
-                <div className="flex flex-col items-center mt-0 sm:mt-2 relative">
-                <motion.h1 
-                    key={score}
-                    initial={{ scale: 1.1, y: -5 }}
-                    animate={{ 
-                        scale: isNewRecord ? [1, 1.1, 1] : 1, 
-                        y: 0,
-                        color: isNewRecord ? '#FACC15' : '#FFFFFF'
-                    }}
-                    className="text-[3rem] sm:text-[5rem] font-black leading-none tracking-tighter transition-all duration-300"
-                >
-                    {score}
-                </motion.h1>
+                {/* The score is the one number the player watches. Tabular
+                    figures hold the digit columns so it counts up in place
+                    instead of shifting under the eye. */}
+                <div className="flex flex-col items-center mt-1 sm:mt-3 relative">
+                  <h1 className="sr-only">Punteggio</h1>
+                  <motion.output
+                      key={score}
+                      aria-live="polite"
+                      initial={{ scale: 1.08, y: -4 }}
+                      animate={{
+                          scale: isNewRecord ? [1, 1.08, 1] : 1,
+                          y: 0,
+                      }}
+                      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                      className="tnum block text-[3.25rem] sm:text-[5rem] font-black leading-none transition-colors duration-300"
+                      style={{
+                          letterSpacing: '-0.045em',
+                          color: isNewRecord ? '#FFD60A' : '#F2F6FF',
+                          textShadow: isNewRecord
+                            ? '0 0 26px rgba(255,214,10,0.45), 0 2px 0 rgba(0,0,0,0.4)'
+                            : '0 2px 0 rgba(0,0,0,0.4)',
+                      }}
+                  >
+                      {score}
+                  </motion.output>
                 </div>
             </header>
 
@@ -403,14 +426,35 @@ const App: React.FC = () => {
                         x: [0, -10, 10, -10, 10, 0],
                         transition: { duration: 0.4 }
                     } : {}}
-                    className="w-full h-full bg-slate-900/60 rounded-3xl border border-slate-800/50 flex shadow-2xl relative overflow-hidden"
+                    className="w-full h-full rounded-3xl flex relative overflow-hidden"
+                    style={{
+                        backgroundColor: 'rgba(8, 11, 19, 0.72)',
+                        /* A well cut into the board: the rim catches light at the
+                           top, the interior falls away, and blocks land inside it
+                           rather than resting on a flat panel. */
+                        boxShadow: [
+                            'inset 0 2px 3px rgba(0,0,0,0.85)',
+                            'inset 0 -1px 0 rgba(255,255,255,0.06)',
+                            '0 1px 0 rgba(255,255,255,0.06)',
+                            '0 24px 50px -20px rgba(0,0,0,0.9)',
+                        ].join(', '),
+                        border: '1px solid rgba(42,59,92,0.55)',
+                    }}
                 >
-                    {/* Grid Vertical Lines visual */}
-                    <div className="absolute inset-0 flex pointer-events-none">
-                        <div className="flex-1 border-r border-slate-800/30"></div>
-                        <div className="flex-1 border-r border-slate-800/30"></div>
-                        <div className="flex-1 border-r border-slate-800/30"></div>
-                        <div className="flex-1"></div>
+                    {/* Column guides */}
+                    <div aria-hidden className="absolute inset-0 flex pointer-events-none">
+                        <div className="flex-1" style={{ borderRight: '1px solid rgba(120,160,220,0.15)' }} />
+                        <div className="flex-1" style={{ borderRight: '1px solid rgba(120,160,220,0.15)' }} />
+                        <div className="flex-1" style={{ borderRight: '1px solid rgba(120,160,220,0.15)' }} />
+                        <div className="flex-1" />
+                    </div>
+
+                    {/* Row guides, so a stack's height is readable at a glance. */}
+                    <div aria-hidden className="absolute inset-0 flex flex-col-reverse pointer-events-none">
+                        <div className="h-1/4" style={{ borderTop: '1px solid rgba(120,160,220,0.13)' }} />
+                        <div className="h-1/4" style={{ borderTop: '1px solid rgba(120,160,220,0.13)' }} />
+                        <div className="h-1/4" style={{ borderTop: '1px solid rgba(120,160,220,0.13)' }} />
+                        <div className="h-1/4" />
                     </div>
 
                     {grid.map((cards, i) => (
@@ -421,7 +465,7 @@ const App: React.FC = () => {
                         isActive={activeColIndex === i}
                         onCardDragStart={handleCardDragStart}
                         draggingFromThisCol={dragState?.type === 'existing' && dragState.fromCol === i && hasMoved}
-                        lastActionId={lastActionId}
+                        impactKey={lastActionCol === i ? lastActionId : null}
                         dragValue={dragState?.value}
                         isDraggingActive={hasMoved}
                     />

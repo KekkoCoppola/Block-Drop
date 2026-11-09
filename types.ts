@@ -28,6 +28,7 @@ export interface SoundManager {
   playClick: () => void;
   playPop: () => void;
   toggleMusic: (shouldPlay: boolean) => void;
+  setVolume: (val: number) => void;
   fadeOutMusic: (duration: number) => void;
   setOnBeatCallback: (cb: ((beat: number, phase: number) => void) | null) => void;
   toggleVibration: (enabled: boolean) => void;

@@ -1,5 +1,5 @@
-import React, { useMemo, memo } from 'react';
-import { motion } from 'framer-motion';
+import React, { memo } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { CardData } from '../types';
 import { getCardStyle } from '../constants';
 import { CardBody } from './CardBody';
@@ -7,10 +7,10 @@ import { MergeParticles } from './MergeParticles';
 
 interface CardProps {
   card: CardData;
-  index: number; 
+  index: number;
   isTop: boolean;
   onDragStart?: (e: React.PointerEvent) => void;
-  isHidden?: boolean; 
+  isHidden?: boolean;
   isFull?: boolean;
   columnHeight?: number;
 }
@@ -18,102 +18,82 @@ interface CardProps {
 export const Card: React.FC<CardProps> = memo(({ card, index, isTop, onDragStart, isHidden, isFull, columnHeight }) => {
   const style = getCardStyle(card.value);
   const isMerge = card.isMerging;
-  
-  // Memoize random rotation so it doesn't change on re-renders, only on mount
-  const randomRotate = useMemo(() => Math.random() * 20 - 10, []);
+  const reduceMotion = useReducedMotion();
+  const combo = card.comboLevel || 0;
 
-  // Calculate natural Y from top (relative to container)
-  // bottom: index * 25% means natural Y from top is:
-  // columnHeight - (index * 0.25 * columnHeight) - cardHeight
-  // cardHeight is roughly 0.24 * columnHeight
+  // Natural Y from the top of the column, derived from the same 25%/24% layout
+  // the cards are positioned with below.
   const naturalYFromTop = columnHeight ? columnHeight - (index * 0.25 * columnHeight) - (0.24 * columnHeight) : 0;
-  
-  // initial y relative to natural position
-  const initialY = (card.dropFromY !== undefined && columnHeight) 
-    ? card.dropFromY - naturalYFromTop 
-    : -800;
+
+  /* A card only falls if it was actually dropped this session — dropFromY is the
+     pointer position the move came from. Cards restored from a save have no
+     origin, and flying them in from off-screen made a resumed game replay itself
+     and left the board looking empty for the first half second. Those settle in
+     place instead. */
+  const isRestored = card.dropFromY === undefined;
+  const initialY = (!isRestored && columnHeight)
+    ? card.dropFromY! - naturalYFromTop
+    : 0;
 
   // Ghost Style (When being dragged from this column)
   const ghostStyle = isHidden ? {
-      opacity: 0.6,
-      transform: 'scale(0.9)',
-      boxShadow: 'inset 0 0 20px rgba(255,255,255,0.1)',
-      border: '2px dashed rgba(255,255,255,0.4)',
-      backgroundColor: 'rgba(255,255,255,0.02)'
+      opacity: 0.55,
+      transform: 'scale(0.92)',
+      boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.28)',
+      border: '2px dashed rgba(255,255,255,0.35)',
+      backgroundColor: 'rgba(255,255,255,0.03)'
   } : {};
 
-  // CLEAN & DIRECT DROP ANIMATION
+  /* The drop lands rather than glides: a stiff spring on Y, then a short squash
+     on the vertical axis so the block reads as struck plastic on contact. */
   const dropVariants = {
-    initial: { 
-      scale: 1, 
-      y: initialY, 
-      rotate: 0,
-      opacity: card.dropFromY !== undefined ? 1 : 0
+    initial: {
+      scaleY: 1,
+      y: initialY,
+      opacity: isRestored ? 0 : 1,
+      scale: isRestored ? 0.94 : 1,
     },
-    animate: { 
+    animate: {
+      y: 0,
+      opacity: 1,
       scale: 1,
-      y: 0, 
-      rotate: 0, 
-      opacity: 1,
-      transition: { 
-        y: {
-          type: "spring", 
-          stiffness: 400, 
-          damping: 40,
-          mass: 1,
-        },
-        opacity: { duration: 0.2 }
-      } 
+      scaleY: reduceMotion || isRestored ? 1 : [1, 0.9, 1.03, 1],
+      transition: isRestored
+        ? { duration: 0.26, ease: [0.16, 1, 0.3, 1] }
+        : {
+            y: { type: 'spring', stiffness: 420, damping: 38, mass: 0.9 },
+            opacity: { duration: 0.18 },
+            scaleY: { duration: 0.34, times: [0, 0.62, 0.82, 1], ease: 'easeOut' }
+          }
     }
   };
 
-  // Sharp Minimal Merge Animation
   const mergeVariants = {
-    initial: { scale: 0.8, opacity: 0 },
-    animate: { 
-      scale: [1.2, 1], 
+    initial: { scale: 0.86, opacity: 0 },
+    animate: {
+      scale: reduceMotion ? 1 : [1.16, 1],
       opacity: 1,
-      transition: { 
-        duration: 0.3,
-        ease: [0.16, 1, 0.3, 1] // Sharp ease out
-      } 
+      transition: { duration: 0.32, ease: [0.16, 1, 0.3, 1] }
     }
   };
-
-  // Sudden "Stamp" Text Animation
-  const textVariants = {
-    initial: { scale: 0.5, opacity: 0 },
-    animate: { 
-      scale: 1, 
-      opacity: 1, 
-      transition: {
-        delay: 0.05, 
-        duration: 0.2,
-        ease: "easeOut"
-      }
-    }
-  };
-
-  const dangerGlow = isFull 
-      ? `0 0 20px 5px rgba(255, 60, 60, 0.8)` 
-      : style.boxShadow;
 
   return (
     <motion.div
-      initial={isMerge ? mergeVariants.initial : dropVariants.initial} 
+      initial={isMerge ? mergeVariants.initial : dropVariants.initial}
       animate={isMerge ? mergeVariants.animate : dropVariants.animate}
-      whileHover={!isHidden ? { scale: 1.05, zIndex: 100 } : {}}
-      whileTap={!isHidden ? { scale: 0.95 } : {}}
+      whileHover={!isHidden ? { scale: 1.04, zIndex: 100 } : {}}
+      whileTap={!isHidden ? { scale: 0.96 } : {}}
       className="absolute flex items-center justify-center select-none"
       style={{
-        bottom: `${index * 25}%`, 
-        height: '24%', 
+        bottom: `${index * 25}%`,
+        height: '24%',
         marginBottom: '0.5%',
         width: '94%',
         left: '3%',
-        zIndex: isMerge ? 50 : index, 
+        zIndex: isMerge ? 50 : index,
         touchAction: 'none',
         cursor: 'grab',
+        transformOrigin: 'bottom center',
         willChange: 'transform, opacity',
       }}
       onPointerDown={(e) => {
@@ -122,8 +102,7 @@ export const Card: React.FC<CardProps> = memo(({ card, index, isTop, onDragStart
         }
       }}
     >
-        {/* Main Card Body */}
-        <CardBody 
+        <CardBody
             value={card.value}
             isMerge={isMerge}
             isFull={isFull}
@@ -131,46 +110,33 @@ export const Card: React.FC<CardProps> = memo(({ card, index, isTop, onDragStart
             styleOverride={ghostStyle}
         />
 
-        {/* --- MINIMAL COLOR EXPLOSION MERGE --- */}
-        {isMerge && !isHidden && (
-            <>
-            <MergeParticles color={style.accent} />
+        {/* --- The merge payoff ---------------------------------------------
+            One idea: the block releases the energy it just absorbed, in its own
+            colour. A shockwave ring carries the hue outward, debris follows it,
+            and the whole thing scales with the combo so a chain visibly escalates
+            instead of repeating one identical pop. */}
+        {isMerge && !isHidden && !reduceMotion && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                {/* 1. The "Exploding" Card Body */}
+                <MergeParticles color={style.accent} faceColor={style.backgroundColor} combo={combo} />
+
+                {/* Coloured shockwave */}
                 <motion.div
-                    initial={{ scale: 1, opacity: 1 }}
-                    animate={{ 
-                        scale: 2.2 + (card.comboLevel || 0) * 0.2, 
-                        opacity: 0 
-                    }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                    className="absolute inset-0 rounded-xl z-20"
-                    style={{ 
-                        backgroundColor: style.backgroundColor
-                    }}
-                />
-                
-                {/* 2. Sharp White Expansion Ring */}
-                <motion.div
-                    initial={{ scale: 0.9, opacity: 1, border: '2px solid white' }}
-                    animate={{ 
-                        scale: 2.5, 
-                        opacity: 0,
-                        borderWidth: 0
-                    }}
-                    transition={{ duration: 0.4, ease: "circOut" }}
-                    className="absolute inset-0 rounded-xl z-30"
+                    initial={{ scale: 0.92, opacity: 0.9 }}
+                    animate={{ scale: 1.9 + combo * 0.22, opacity: 0 }}
+                    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute inset-0 rounded-[16px] z-20"
+                    style={{ boxShadow: `0 0 0 3px ${style.accent}, 0 0 22px 4px ${style.backgroundColor}` }}
                 />
 
-                {/* 3. Brief Impact Flash */}
+                {/* Core bloom, brief and tinted so it does not wash to white */}
                 <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: [0, 0.6, 0] }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute inset-[-20%] bg-white z-40 rounded-xl"
+                    initial={{ scale: 1, opacity: 0.7 }}
+                    animate={{ scale: 1.5 + combo * 0.1, opacity: 0 }}
+                    transition={{ duration: 0.34, ease: 'easeOut' }}
+                    className="absolute inset-0 rounded-[16px] z-10"
+                    style={{ backgroundColor: style.accent }}
                 />
             </div>
-            </>
         )}
     </motion.div>
   );

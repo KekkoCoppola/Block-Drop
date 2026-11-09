@@ -2,6 +2,25 @@
 
 @theme {
   --font-sans: "Nunito", ui-sans-serif, system-ui, sans-serif;
+
+  /* Surfaces, deepest to most raised. These were literals scattered across
+     components; they are the incumbent values, now named. */
+  --color-void: #080b13;
+  --color-deep: #0b0f19;
+  --color-base: #111625;
+  --color-surface: #1a233a;
+  --color-raised: #2a3b5c;
+
+  /* Ink. Secondary text is tinted from the surface hue, never neutral gray. */
+  --color-ink: #f2f6ff;
+  --color-ink-muted: #9aa9c9;
+  --color-ink-faint: #64749a;
+
+  /* Accents, unchanged from the incumbent world. */
+  --color-brand: #40c4ff;
+  --color-brand-deep: #00529b;
+  --color-gold: #ffd60a;
+  --color-danger: #ff453a;
 }
 
 :root {
@@ -9,19 +28,34 @@
   --safe-area-inset-bottom: env(safe-area-inset-bottom);
   --safe-area-inset-left: env(safe-area-inset-left);
   --safe-area-inset-right: env(safe-area-inset-right);
+
+  /* One easing vocabulary for the whole game.
+     arrive: confident deceleration for things landing.
+     exit:   faster, so leaving never feels like latency.
+     Celebration reads through keyframe values, never an elastic curve. */
+  --ease-arrive: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  color-scheme: dark;
 }
 
+html,
 body {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #0f172a; /* Slate 900 */
+  overscroll-behavior: none;
+  background-color: var(--color-base);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
@@ -29,6 +63,103 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+/* Every number that changes in place — score, record, block values — holds its
+   column width so digits do not jitter as they tick. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Browser surfaces. These ship with defaults that belong to no design system. */
+::selection {
+  background-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
+  color: var(--color-ink);
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-raised) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-raised);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--color-raised) 70%, var(--color-brand));
+  background-clip: content-box;
+}
+
+/* The volume slider is the one native control the game exposes. */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-deep);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.6);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-deep);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.6);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -6px;
+  border-radius: 999px;
+  background: var(--color-brand);
+  border: 2px solid #d6f0ff;
+  box-shadow: 0 2px 0 var(--color-brand-deep), 0 4px 8px rgb(0 0 0 / 0.45);
+  transition: transform 120ms var(--ease-arrive);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--color-brand);
+  border: 2px solid #d6f0ff;
+  box-shadow: 0 2px 0 var(--color-brand-deep), 0 4px 8px rgb(0 0 0 / 0.45);
+}
+
+input[type="range"]:active::-webkit-slider-thumb {
+  transform: scale(1.15);
 }
 
 /* Safe area padding for native apps */
@@ -46,4 +177,17 @@ body {
 
 .safe-right {
   padding-right: var(--safe-area-inset-right);
+}
+
+/* Reduced motion keeps every state change legible and drops only the ambient
+   loops and spatial travel. Feedback that confirms an action survives. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

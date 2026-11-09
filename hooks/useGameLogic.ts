@@ -19,12 +19,25 @@ export const useGameLogic = () => {
   const [maxValReached, setMaxValReached] = useState(3);
   const [comboEvent, setComboEvent] = useState<ComboEvent | null>(null);
   const [lastActionId, setLastActionId] = useState("");
+  // Which column the last action landed in, so impact feedback fires there and
+  // not on all four at once.
+  const [lastActionCol, setLastActionCol] = useState<number | null>(null);
   
   const isProcessingRef = useRef(false);
   const comboCountRef = useRef(0);
 
+  // The save effect must not run before the save has been read back into state,
+  // or it persists the empty initial grid over a real save. StrictMode replays
+  // effects in dev, so the load is additionally latched to run exactly once —
+  // without it the replayed load re-reads whatever the save effect just wrote.
+  const hasLoadedRef = useRef(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
   // Load state
   useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
+
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
@@ -48,10 +61,13 @@ export const useGameLogic = () => {
       setNextCardValue(first);
       setSecondNextCardValue(second);
     }
+    setIsLoaded(true);
   }, []);
 
   // Save state
   useEffect(() => {
+    if (!isLoaded) return;
+
     const state: GameState = {
       grid,
       score,
@@ -63,7 +79,7 @@ export const useGameLogic = () => {
       maxValReached,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [grid, score, highScore, nextCardValue, secondNextCardValue, isGameOver, isGameStarted, maxValReached]);
+  }, [isLoaded, grid, score, highScore, nextCardValue, secondNextCardValue, isGameOver, isGameStarted, maxValReached]);
 
   useEffect(() => {
     if (score > highScore) {
@@ -190,7 +206,12 @@ export const useGameLogic = () => {
         return;
     }
 
+    /* The lock must come off on every exit path. Without the finally, a throw
+       anywhere between here and the end — a render error in a consumer, a
+       rejected sound call — left isProcessingRef stuck true and the board
+       silently refused every further move, recoverable only by reloading. */
     isProcessingRef.current = true;
+    try {
     comboCountRef.current = 0;
     setComboEvent(null); 
 
@@ -205,6 +226,7 @@ export const useGameLogic = () => {
     
     setGrid(tempGrid);
     setLastActionId(generateId());
+    setLastActionCol(colIndex);
     soundManager.playDrop();
     soundManager.vibrate(VIBRATION_PATTERNS.DROP);
 
@@ -227,8 +249,10 @@ export const useGameLogic = () => {
         return prevGrid;
     });
 
-    isProcessingRef.current = false;
-  }, [grid, isGameOver, isGameStarted, nextCardValue, maxValReached, processGravityAndMerges]);
+    } finally {
+      isProcessingRef.current = false;
+    }
+  }, [grid, isGameOver, isGameStarted, nextCardValue, secondNextCardValue, score, maxValReached, processGravityAndMerges]);
 
   const moveCard = useCallback(async (fromCol: number, toCol: number, dropFromY?: number) => {
     if (isGameOver || isProcessingRef.current || !isGameStarted) return;
@@ -238,6 +262,7 @@ export const useGameLogic = () => {
     if (grid[toCol].length >= MAX_ROWS) return;
 
     isProcessingRef.current = true;
+    try {
     comboCountRef.current = 0;
     setComboEvent(null);
 
@@ -245,10 +270,7 @@ export const useGameLogic = () => {
     const sourceColCards = [...tempGrid[fromCol]];
     const cardToMove = sourceColCards.pop(); 
 
-    if (!cardToMove) {
-        isProcessingRef.current = false;
-        return;
-    }
+    if (!cardToMove) return;
 
     const updatedCardToMove = { ...cardToMove, dropFromY };
     tempGrid[fromCol] = sourceColCards;
@@ -256,6 +278,7 @@ export const useGameLogic = () => {
 
     setGrid(tempGrid);
     setLastActionId(generateId());
+    setLastActionCol(toCol);
     soundManager.playDrop();
     soundManager.vibrate(VIBRATION_PATTERNS.DROP);
 
@@ -274,13 +297,16 @@ export const useGameLogic = () => {
         return prevGrid;
     });
 
-    isProcessingRef.current = false;
+    } finally {
+      isProcessingRef.current = false;
+    }
   }, [grid, isGameOver, isGameStarted, processGravityAndMerges]);
 
   const resetGame = () => {
     setGrid(createInitialGrid());
     setScore(0);
     setNextCardValue(generateNextValue(3, 0));
+    setSecondNextCardValue(generateNextValue(3, 0));
     setIsGameOver(false);
     setMaxValReached(3);
     setComboEvent(null);
@@ -297,6 +323,7 @@ export const useGameLogic = () => {
     isGameStarted,
     comboEvent,
     lastActionId,
+    lastActionCol,
     maxValReached,
     startGame,
     pauseGame,

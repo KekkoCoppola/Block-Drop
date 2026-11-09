@@ -1,32 +1,31 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 
-interface Particle {
-  id: number;
-  x: number;
-  y: number;
-  color: string;
-  size: number;
-  angle: number;
-  distance: number;
-}
-
 interface MergeParticlesProps {
+  /** Highlight colour of the merging block. */
   color: string;
-  count?: number;
+  /** Face colour, mixed in so debris reads as pieces of the block itself. */
+  faceColor?: string;
+  /** Combo depth; a longer chain throws more, and further. */
+  combo?: number;
 }
 
-export const MergeParticles: React.FC<MergeParticlesProps> = ({ color, count = 4 }) => {
+export const MergeParticles: React.FC<MergeParticlesProps> = ({ color, faceColor, combo = 0 }) => {
+  const count = Math.min(10, 5 + combo);
+
   const particles = useMemo(() => {
     return Array.from({ length: count }).map((_, i) => ({
       id: i,
-      angle: (Math.PI * 2 * i) / count + (Math.random() * 0.4 - 0.2),
-      distance: 40 + Math.random() * 40,
-      size: 3 + Math.random() * 4,
-      duration: 0.3 + Math.random() * 0.2,
-      isSquare: Math.random() > 0.5,
+      // Even fan with jitter, so it scatters without ever looking like a clock face.
+      angle: (Math.PI * 2 * i) / count + (Math.random() * 0.5 - 0.25),
+      distance: 44 + Math.random() * 46 + combo * 8,
+      size: 3 + Math.random() * 5,
+      duration: 0.34 + Math.random() * 0.22,
+      spin: Math.random() * 180 - 90,
+      isSquare: Math.random() > 0.45,
+      tint: Math.random() > 0.5 && faceColor ? faceColor : color,
     }));
-  }, [count]);
+  }, [count, combo, color, faceColor]);
 
   return (
     <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-50">
@@ -36,20 +35,18 @@ export const MergeParticles: React.FC<MergeParticlesProps> = ({ color, count = 4
           initial={{ x: 0, y: 0, scale: 1, opacity: 1, rotate: 0 }}
           animate={{
             x: Math.cos(p.angle) * p.distance,
-            y: Math.sin(p.angle) * p.distance,
+            // Debris falls slightly as it flies, so it obeys the board's gravity.
+            y: Math.sin(p.angle) * p.distance + 14,
             scale: 0,
             opacity: 0,
-            rotate: p.isSquare ? 90 : 0,
+            rotate: p.spin,
           }}
-          transition={{
-            duration: p.duration,
-            ease: [0.1, 0.9, 0.2, 1],
-          }}
-          className={`absolute ${p.isSquare ? 'rounded-sm' : 'rounded-full'}`}
+          transition={{ duration: p.duration, ease: [0.1, 0.9, 0.2, 1] }}
+          className={`absolute ${p.isSquare ? 'rounded-[2px]' : 'rounded-full'}`}
           style={{
             width: p.size,
             height: p.size,
-            backgroundColor: color,
+            backgroundColor: p.tint,
             willChange: 'transform, opacity',
           }}
         />
